@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>부산 테마여행 상세</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <header class="bg-white shadow-sm">
+    <div class="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
+      <a href="{{ url_for('index') }}" class="text-xl font-bold text-indigo-600">✨ 모던 게시판</a>
+      <a href="/public-post" class="text-sm font-semibold text-sky-700">← 여행 목록</a>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-8">
+    {% if error %}
+    <div class="bg-amber-50 border border-amber-300 text-amber-900 rounded-xl p-5">
+      <p class="font-bold">상세 정보를 표시할 수 없습니다.</p>
+      <p class="text-sm mt-2">{{ error }}</p>
+    </div>
+    {% elif travel %}
+    <article class="bg-white rounded-2xl shadow-sm overflow-hidden">
+      {% if travel.MAIN_IMG_NORMAL %}
+      <img src="{{ travel.MAIN_IMG_NORMAL }}" alt="{{ travel.MAIN_TITLE }}" class="w-full max-h-[28rem] object-cover">
+      {% endif %}
+      <div class="p-6 md:p-8">
+        <p class="text-sm font-semibold text-sky-700">{{ travel.GUGUN_NM or '부산' }} · {{ travel.CATE2_NM or '테마여행' }}</p>
+        <h1 class="text-3xl font-bold mt-2">{{ travel.MAIN_TITLE or travel.TITLE }}</h1>
+        {% if travel.SUBTITLE %}<p class="text-lg text-slate-500 mt-2">{{ travel.SUBTITLE }}</p>{% endif %}
+
+        <dl class="grid md:grid-cols-2 gap-4 mt-8 text-sm">
+          <div class="bg-slate-50 rounded-xl p-4"><dt class="text-slate-500">주소</dt><dd class="font-semibold mt-1">{{ travel.ADDR1 or '-' }} {{ travel.ADDR2 or '' }}</dd></div>
+          <div class="bg-slate-50 rounded-xl p-4"><dt class="text-slate-500">연락처</dt><dd class="font-semibold mt-1">{{ travel.CNTCT_TEL or '-' }}</dd></div>
+          <div class="bg-slate-50 rounded-xl p-4"><dt class="text-slate-500">운영시간</dt><dd class="font-semibold mt-1">{{ travel.USAGE_DAY_WEEK_AND_TIME or travel.USAGE_DAY or '-' }}</dd></div>
+          <div class="bg-slate-50 rounded-xl p-4"><dt class="text-slate-500">이용요금</dt><dd class="font-semibold mt-1">{{ travel.USAGE_AMOUNT or '-' }}</dd></div>
+        </dl>
+
+        {% if travel.ITEMCNTNTS %}
+        <section class="mt-8">
+          <h2 class="text-xl font-bold">상세 내용</h2>
+          <p class="mt-3 leading-7 whitespace-pre-line text-slate-700">{{ travel.ITEMCNTNTS }}</p>
+        </section>
+        {% endif %}
+
+        {% if travel.HOMEPAGE_URL %}
+        <a href="{{ travel.HOMEPAGE_URL }}" target="_blank" rel="noopener noreferrer" class="inline-block mt-8 bg-sky-600 text-white rounded-lg px-5 py-3 text-sm font-semibold">공식 홈페이지 열기</a>
+        {% endif %}
+      </div>
+    </article>
+    {% endif %}
+  </main>
+</body>
+</html>
