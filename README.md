@@ -83,6 +83,15 @@ alert_sender.py                                                my_new_board_db
 ![디스코드](images/05-discord.png)
 ![텔레그램](images/06-telegram.png)
 
+### 게시판 REST 응답 코드
+
+키가 없으면 401, 필수값이 빠지면 400, 제대로 갖추면 201로 저장되고, 학생
+이름으로 조회하면 200이 옵니다. `scripts/capture_api_evidence.ps1`이 넷을
+순서대로 호출하고 기대값과 실제값을 나란히 찍습니다. API 키는 `.env`에서
+읽어 헤더로만 넘기므로 화면에 남지 않습니다.
+
+![API 응답 코드](images/11-api-401-400-201.png)
+
 ### 데이터베이스 저장 결과
 
 ![MySQL](images/07-mysql.png)
