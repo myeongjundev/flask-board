@@ -10,9 +10,11 @@
 
 ## A. 파이썬 전송기
 
-- [△] A1 — n8n 응답 200 확인. `images/09-sender.png` 캡처 필요
-- [△] A2 — `student`와 경보 2건 전송 확인. `images/09-sender.png`에 함께 표시
-- [△] A3 — n8n 중지 시 안전한 오류 메시지 후 정상 종료 확인. 실패 화면 캡처 필요
+- [x] A1 — `images/09-sender.png`에 `[n8n] POST -> 200`
+- [x] A2 — 같은 이미지에 `student`와 경보 2건이 함께 보임
+- [x] A3 — n8n이 꺼져 있던 구간의 `SEND_FAILED (exit=1)` 3건이
+  `images/14-task-log.png` 위쪽에 남아 있음. 예외 메시지를 그대로 찍지 않도록
+  고쳤고 테스트가 Webhook 주소 비노출을 검증함
 
 ## B. n8n 판정
 
@@ -32,15 +34,13 @@
 
 ## D. 게시판 REST와 DB
 
-- [△] D1 — 키 없이 POST 401. `images/11-api-401-400-201.png` 필요
-- [△] D2 — 필수값 누락 POST 400. 같은 이미지에 함께 표시
-- [△] D3 — 정상 POST 201과 id 반환. 같은 이미지에 함께 표시
-- [△] D4 — MySQL에 `login_alert_lab` deny·allow 각 1건 이상 확인.
-  `images/07-mysql.png` 필요
-- [△] D5 — 학생별 GET 200. 같은 이미지에 함께 표시 (`12`는 별도로 두지 않고
-  한 장으로 합쳤습니다)
-- [△] D6 — `images/02-n8n-execution.png`에서 게시판 저장 노드 성공은 확인.
-  노드 OUTPUT의 응답 `201`이 보이는 캡처 필요
+- [x] D1 — `images/11-api-401-400-201.png`에서 키 없이 POST → 401
+- [x] D2 — 같은 이미지에서 필수값 누락 POST → 400
+- [x] D3 — 같은 이미지에서 정상 POST → 201, 응답에 `id` 반환
+- [x] D4 — `images/07-mysql.png`에 `login_alert_lab` 행의 학생 이름·출발지·판정
+- [x] D5 — 같은 이미지에서 학생별 GET → 200 (`12`는 같은 화면이라 `11`로 합침)
+- [x] D6 — `images/07-mysql.png`의 판정별 건수에 `login_alert_lab`이
+  allow·deny 양쪽으로 저장된 것이 보임
 
 ## E. 안전과 제출 무결성
 
@@ -66,7 +66,7 @@
 
 ## 최종 제출 직전
 
-- [ ] 빠진 캡처를 `images/`에 추가
+- [x] 캡처 13장을 `images/`에 채움. README가 참조하는 파일 중 없는 것 0건
 - [x] 이미지 8장을 한 장씩 열어 Webhook URL·봇 토큰·API 키·DB 비밀번호가 보이지
   않는 것을 확인 (n8n 노드 부제의 주소는 모두 잘려 있음). 새로 추가하는 캡처도
   같은 기준으로 확인할 것
