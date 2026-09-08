@@ -11,7 +11,10 @@
 # API 키는 .env에서 읽되 화면에는 찍지 않는다. 캡처에 비밀값이 남으면 E1 위반이다.
 
 $ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = [Text.Encoding]::UTF8
+
+# 콘솔 출력 인코딩은 건드리지 않는다. Windows PowerShell 5.1의 레거시 콘솔에서
+# OutputEncoding만 UTF-8로 바꾸면 글자 폭 계산이 어긋나 한글이 두 번 그려진다.
+# 이 스크립트의 한글은 전부 cp949에 있으므로 기본값 그대로가 맞다.
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $BaseUrl  = 'http://127.0.0.1:5000'
