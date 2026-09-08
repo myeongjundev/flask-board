@@ -1,4 +1,4 @@
-# alert_sender.py를 작업 스케줄러에서 안전하게 실행하는 래퍼. (심화 S4)
+﻿# alert_sender.py를 작업 스케줄러에서 안전하게 실행하는 래퍼. (심화 S4)
 #
 # 스케줄러는 시작 위치를 보장하지 않는다. 그대로 실행하면 alert_sender.py가
 # 옆에 있는 .env를 못 찾아 "N8N_WEBHOOK_URL과 STUDENT_NAME을 .env에 설정하세요"로

@@ -1,4 +1,4 @@
-# 심화 S4로 등록한 임시 작업을 지운다.
+﻿# 심화 S4로 등록한 임시 작업을 지운다.
 #
 #     powershell -ExecutionPolicy Bypass -File scripts\unregister_alert_task.ps1
 #
