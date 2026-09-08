@@ -49,12 +49,6 @@ function Invoke-Case {
         $Body = $null        # 있으면 JSON으로 보낸다
     )
 
-    Write-Host ''
-    Write-Host ("=" * 72) -ForegroundColor DarkGray
-    Write-Host (" {0}   [{1}]  기대: {2}" -f $Label, $Grade, $Expect) -ForegroundColor Cyan
-    Write-Host ("=" * 72) -ForegroundColor DarkGray
-    Write-Host ("  {0} {1}" -f $Method, $Path) -ForegroundColor DarkGray
-
     $args = @{
         Uri             = "$BaseUrl$Path"
         Method          = $Method
@@ -66,7 +60,6 @@ function Invoke-Case {
         $json = $Body | ConvertTo-Json -Compress
         $args['Body']        = [Text.Encoding]::UTF8.GetBytes($json)
         $args['ContentType'] = 'application/json; charset=utf-8'
-        Write-Host ("  본문: {0}" -f $json) -ForegroundColor DarkGray
     }
 
     # PowerShell 5.1은 4xx·5xx를 예외로 던진다. 응답 객체에서 코드를 꺼낸다.
@@ -84,15 +77,25 @@ function Invoke-Case {
     }
 
     $ok = ($code -eq $Expect)
-    Write-Host ("  실제: {0}   {1}" -f $code, $(if ($ok) { 'PASS' } else { 'FAIL' })) `
-        -ForegroundColor $(if ($ok) { 'Green' } else { 'Red' })
-
+    $parsed = $null
     if ($content) {
-        $shown = $content
-        if ($shown.Length -gt 500) { $shown = $shown.Substring(0, 500) + ' ...(생략)' }
-        Write-Host "  응답: $shown"
+        try { $parsed = $content | ConvertFrom-Json } catch { $parsed = $null }
     }
-    return $ok
+
+    $result = [PSCustomObject]@{
+        Grade   = $Grade
+        Label   = $Label
+        Method  = $Method
+        Path    = $Path
+        Expected = $Expect
+        Actual  = $code
+        Passed  = $ok
+        Parsed  = $parsed
+    }
+    Write-Host ("{0}  {1,-4} 기대 {2} / 실제 {3}  {4}  {5}" -f `
+        $Grade, $Method, $Expect, $code, $(if ($ok) { 'PASS' } else { 'FAIL' }), $Label) `
+        -ForegroundColor $(if ($ok) { 'Green' } else { 'Red' })
+    return $result
 }
 
 Write-Host ''
@@ -130,7 +133,7 @@ $results += Invoke-Case -Label 'D5  학생 이름으로 조회' -Grade 'D5' -Exp
 
 Write-Host ''
 Write-Host ("=" * 72) -ForegroundColor DarkGray
-$pass = ($results | Where-Object { $_ }).Count
+$pass = ($results | Where-Object { $_.Passed }).Count
 if ($pass -eq $results.Count) {
     Write-Host (" 전부 통과 — {0}/{1}" -f $pass, $results.Count) -ForegroundColor Green
 } else {
@@ -138,6 +141,10 @@ if ($pass -eq $results.Count) {
 }
 Write-Host ("=" * 72) -ForegroundColor DarkGray
 Write-Host ''
-Write-Host 'D3이 남긴 행은 source = api_demo 입니다. 지우려면:' -ForegroundColor DarkGray
-Write-Host "  docker exec flask_mysql mysql -uroot -p`$env:MYSQL_ROOT_PASSWORD -e ""DELETE FROM my_new_board_db.security_events WHERE source='api_demo';""" -ForegroundColor DarkGray
+Write-Host ("D3 응답: id={0}, decision={1}, student={2}" -f `
+    $results[2].Parsed.id, $results[2].Parsed.decision, $results[2].Parsed.student)
+Write-Host ("D5 응답: count={0}, 첫 행={{id:{1}, decision:{2}, student:{3}}}" -f `
+    $results[3].Parsed.count, $results[3].Parsed.events[0].id, `
+    $results[3].Parsed.events[0].decision, $results[3].Parsed.events[0].student)
+Write-Host 'API 키는 .env에서만 읽었으며 화면에는 표시하지 않았습니다.' -ForegroundColor DarkGray
 Write-Host ''

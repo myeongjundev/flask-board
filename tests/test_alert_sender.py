@@ -26,18 +26,22 @@ class AlertSenderTestCase(unittest.TestCase):
             self.assertEqual(alert_sender.main(), 2)
 
     def test_network_failure_is_reported_without_traceback(self):
+        stderr = io.StringIO()
+        secret_url = "http://example.invalid/webhook/secret-path"
         with (
-            patch.object(alert_sender, "N8N_WEBHOOK_URL", "http://example.invalid/webhook/test"),
+            patch.object(alert_sender, "N8N_WEBHOOK_URL", secret_url),
             patch.object(alert_sender, "STUDENT_NAME", "합성학생"),
             patch.object(
                 alert_sender.requests,
                 "post",
-                side_effect=requests.ConnectionError("연결 실패"),
+                side_effect=requests.ConnectionError(f"연결 실패: {secret_url}"),
             ),
             redirect_stdout(io.StringIO()),
-            redirect_stderr(io.StringIO()),
+            redirect_stderr(stderr),
         ):
             self.assertEqual(alert_sender.main(), 1)
+        self.assertIn("전송 실패 (ConnectionError)", stderr.getvalue())
+        self.assertNotIn(secret_url, stderr.getvalue())
 
     def test_success_reports_http_status(self):
         response = Mock()

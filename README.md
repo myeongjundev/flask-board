@@ -1,113 +1,232 @@
-# Flask RESTful 게시판
+# 로그인 경보 자동화 봇
 
-제미나이 가이드 기반. JWT 인증 + 검색/필터 + 커서 기반 페이징.
+파이썬이 보낸 로그인 경보를 **n8n이 스스로 판단(허용/거부)** 하고, 그 결과를
+**메신저로 알린 뒤 게시판 DB에 기록**하는 자동화 봇입니다. 판단 기준은 n8n Code
+노드의 상수 하나로 모여 있어, 숫자만 바꾸면 허용이던 경보가 거부로 바뀝니다.
 
-## 2026-09-08 로그인 경보 자동화 확장
+기존에 만들던 Flask 게시판에 보안 이벤트 REST API와 대시보드를 덧붙여, 자동화의
+결과가 사람이 볼 수 있는 화면까지 이어지게 했습니다.
 
-강사 실습의 구조분리 버전을 이 저장소에 맞게 통합했다.
+```text
+[내 PC · 파이썬]              [Docker · n8n]                  [Docker · MySQL]
+alert_sender.py                                                my_new_board_db
+     │                                                               ▲
+     │ ① HTTP POST (JSON)                                            │
+     ▼                                                               │
+  Webhook → Code(판정) → IF(deny?)                                    │
+                          ├─ 🚫 거부 문구 ─┬─▶ 슬랙·디스코드·텔레그램   │
+                          └─ ✅ 허용 문구 ─┘                          │
+                                          └─▶ 게시판 저장 ── ③ REST ──┘
+```
 
-- `config.py`: `.env`에서 DB·JWT·보안 API·공공데이터 설정 로드
-- `models/`: 기존 사용자·게시글과 신규 `security_events` 모델
-- `controllers/`: 화면·인증·게시글·보안 이벤트·부산 여행 요청 분리
-- `/dashboard`: n8n이 저장한 허용·거부 결과 확인
-- `POST /api/security/events`: `X-API-Key`로 보호된 저장 API
-- `GET /api/security/events`: 학생별 최신 기록 조회
-- `alert_sender.py`: deny/allow 판정용 합성 경보 두 건 전송
+## ② 작업 내역
 
-기존 `/public-post`, `/busan-travel` 주소와 게시글 데이터 구조는 유지한다.
+### 만든 순서
 
-## 현재 구성 (2차 최종)
+1. **게시판 정리** — 실습 파일 14개를 `config.py` · `models/` · `controllers/`로
+   나누고, 설정값을 전부 `.env`로 뺐습니다.
+2. **보안 이벤트 모델·API** — `security_events` 테이블과
+   `POST/GET /api/security/events`를 만들었습니다. 저장은 `X-API-Key`로 막았습니다.
+3. **파이썬 전송기** — `alert_sender.py`에서 거부될 경보(level 10)와 허용될
+   경보(level 3)를 함께 보냅니다.
+4. **n8n 워크플로** — Webhook → Code(판정) → IF(분기) → 메신저 3곳 + 게시판 저장.
+5. **대시보드** — `/dashboard`에서 n8n이 저장한 허용·거부 결과를 확인합니다.
 
-2차 요구사항인 "기존 MySQL 서버에 접속해서 새 스키마를 생성해 사용"을 그대로 따른다.
-게시판 전용 컨테이너를 띄우지 않고, 수업용으로 이미 돌고 있는 `mysql-lab`을 재사용한다.
+### 사용한 것
 
-- 서버: `mysql-lab` 컨테이너, 포트 **3306**, 접속 정보는 `.env`의 `DATABASE_URL`
-- 스키마: `my_new_board_db` (utf8mb4 / utf8mb4_unicode_ci)
-- 테이블: `users`, `posts` (SQLAlchemy가 자동 생성)
-- 앱 포트: **5000** (`_6_test/app.py`도 5000을 쓰므로 동시에 띄울 수 없다)
+| 구분 | 사용 |
+| --- | --- |
+| 언어 | Python 3.13 |
+| 웹 | Flask 3.1, Flask-SQLAlchemy, Flask-JWT-Extended |
+| 자동화 | n8n (Docker) — Webhook · Code(JavaScript) · IF · HTTP Request |
+| DB | MySQL 8.0 (Docker), 스키마 `my_new_board_db` |
+| 메신저 | 슬랙 · 디스코드 · 텔레그램 (3종 모두 실제 연결) |
+| 기타 | python-dotenv, requests, pytest |
 
-같은 서버 안에 수업용 `github_db`가 함께 있다. 서로 독립이다.
+### 판정 규칙
 
-## 실행
+거부 기준은 Code 노드 맨 위 `DENY_LEVEL` 상수 하나입니다.
+
+| 조건 | severity | decision |
+| --- | --- | --- |
+| level ≥ 10 | High | **deny** |
+| level ≥ 7 | Medium | allow |
+| 그 외 | Low | allow |
+
+## ③ 기능 구현 화면
+
+> 아래 표의 캡처를 `images/` 폴더에 넣고 파일명을 맞추면 그대로 표시됩니다.
+> **토큰·Webhook 주소가 화면에 찍히지 않았는지 확인하세요.**
+
+### n8n 워크플로 전체
+
+![n8n 워크플로](images/01-n8n-workflow.png)
+
+### 실행 성공 — 노드가 모두 초록
+
+![n8n 실행 성공](images/02-n8n-execution.png)
+
+### Code 노드 출력 — 경보 2건이 아이템 2개로
+
+![Code 노드 출력](images/03-code-output.png)
+
+### 메신저 도착
+
+![슬랙](images/04-slack.png)
+![디스코드](images/05-discord.png)
+![텔레그램](images/06-telegram.png)
+
+### 데이터베이스 저장 결과
+
+![MySQL](images/07-mysql.png)
+
+### 대시보드
+
+![대시보드](images/08-dashboard.png)
+
+### 파이썬 전송기 실행
+
+![alert_sender 실행](images/09-sender.png)
+
+---
+
+<details>
+<summary>캡처 목록과 배점 대응 (제출 전 확인용 — 확정 후 지워도 됩니다)</summary>
+
+| 파일명 | 무엇을 찍나 | 배점 항목 |
+| --- | --- | --- |
+| `01-n8n-workflow.png` | 노드가 연결된 캔버스 전체 | C1 |
+| `02-n8n-execution.png` | IF 양쪽 갈래가 모두 초록인 실행 | C1 · D6 |
+| `03-code-output.png` | Code 노드 OUTPUT — 아이템 2개, `decision`·`severity`·`reason` | B1 · B2 |
+| `04-slack.png` | 슬랙에 🚫거부 + ✅허용 두 건 | C2 · C5 |
+| `05-discord.png` | 디스코드에 두 건 | C3 |
+| `06-telegram.png` | 텔레그램에 두 건 | C4 |
+| `07-mysql.png` | `SELECT ... FROM security_events` — 본인 이름, deny·allow 각 1건 | D4 |
+| `08-dashboard.png` | `/dashboard` 화면 | (가점) |
+| `09-sender.png` | `alert_sender.py` 실행 → `200` | A1 · A2 |
+| `10-deny-level-3.png` | `DENY_LEVEL`을 3으로 바꾼 뒤 판정이 달라진 화면 | B3 |
+| `11-api-401-400-201.png` | 키 없이 401 · 필수값 누락 400 · 정상 201 | D1 · D2 · D3 |
+| `12-get-events.png` | `GET /api/security/events?student=...` 응답 | D5 |
+
+</details>
+
+## ④ 실행 방법
+
+### ① 켜는 것
 
 ```powershell
+docker start n8n flask_mysql     # n8n(5678), MySQL(3306)
+Copy-Item .env.example .env      # 처음 한 번만. 실제 값을 채운다
 pip install -r requirements.txt
-Copy-Item .env.example .env
-# .env의 DATABASE_URL, JWT_SECRET_KEY, SECURITY_API_KEY 등을 본인 값으로 수정
-python app.py
+python app.py                    # 게시판 5000번
 ```
 
-접속: http://127.0.0.1:5000 (테스트 계정 `tester` / `pw1234`)
+n8n 화면(`http://localhost:5678`)에서 워크플로를 **Published** 상태로 둡니다.
 
-MySQL은 `mysql-lab` 컨테이너가 이미 떠 있으면 따로 할 일이 없다.
-
-## 공공데이터 연동 — 부산 테마여행정보
-
-부산광역시 부산테마여행정보 Open API의 국문 데이터를 서버에서 호출한다.
-게시판 헤더의 `부산 테마여행` 메뉴에서 최대 100개 추천여행 목록을 보고,
-콘텐츠를 눌러 주소·연락처·운영시간·이용요금·상세내용 화면으로 이동한다.
-
-- 목록: http://127.0.0.1:5000/public-post
-- 상세: `/public-post/<콘텐츠 ID>`
-- 기존 `/busan-travel` 주소도 같은 화면의 별칭으로 유지한다.
-- 공식 API: https://www.data.go.kr/data/15063506/openapi.do
-- 요청주소: `https://apis.data.go.kr/6260000/RecommendedService/getRecommendedKr`
-
-직접 호출 샘플(브라우저·Postman에서는 발급 화면의 일반 인증키 Encoding 값 사용):
-
-```text
-https://apis.data.go.kr/6260000/RecommendedService/getRecommendedKr?serviceKey=ENCODING_인증키&numOfRows=100&pageNo=1&resultType=json
-```
-
-콘텐츠 ID 305 상세 조회 샘플:
-
-```text
-https://apis.data.go.kr/6260000/RecommendedService/getRecommendedKr?serviceKey=ENCODING_인증키&numOfRows=1&pageNo=1&resultType=json&UC_SEQ=305
-```
-
-공공데이터포털에서 활용신청 후 발급 화면의 **일반 인증키(Decoding)** 값을 현재
-PowerShell 세션의 환경변수로 설정한다. 키는 소스에 붙여 넣지 않는다.
+### ② 실행하는 것
 
 ```powershell
-$env:DATA_GO_KR_SERVICE_KEY = "여기에_일반_인증키_Decoding_값"
-python app.py
+python alert_sender.py
 ```
 
-밑줄 입력이 불편하면 같은 기능의 짧은 변수명을 사용할 수 있다.
+### ③ 무엇이 보이면 통과인가
 
-```powershell
-$env:TOURKEY = Read-Host "인증키"
-python app.py
+- 터미널에 `[n8n] POST -> 200`
+- n8n Executions에서 **IF 양쪽 갈래가 모두 초록**, `게시판 저장` 노드 응답 `201`
+- 메신저에 🚫거부 1건 + ✅허용 1건 도착
+- `http://127.0.0.1:5000/dashboard`에 두 줄이 보임
+- MySQL에서 `SELECT * FROM security_events`에 deny·allow 각 1건
+
+### ④ 안 될 때 보는 곳
+
+| 증상 | 볼 곳 |
+| --- | --- |
+| n8n이 404 | 워크플로가 Published 상태인가. 주소가 `webhook-test`인가 `webhook`인가 |
+| Code 노드가 바로 실패 | 오류 문구를 그대로 읽는다. 언어 선택 문제일 수 있다 (⑤ 참고) |
+| 판정 결과가 비어 있음 | Webhook이 받은 데이터가 `body` **아래**에 들어간다. OUTPUT 패널 확인 |
+| 메신저에 `{{ }}`가 그대로 | 입력칸이 표현식 모드인지 확인 |
+| 게시판 저장이 연결 거부 | 컨테이너 안에서 `localhost`는 컨테이너 자신이다 (⑤ 참고) |
+| 게시판 저장이 401 | `X-API-Key` 헤더 이름과 값이 `.env`의 `SECURITY_API_KEY`와 같은가 |
+| 게시판 저장이 400 | 앞 노드에서 `src_ip` 등 원본 필드가 사라지지 않았는가 |
+
+## ⑤ 막혔던 점과 해결
+
+### 1. n8n 컨테이너에서 게시판에 연결이 되지 않았다
+
+**증상** — 게시판 저장 노드가 연결 거부로 실패했습니다.
+
+**원인** — n8n은 Docker 컨테이너 안에서 돌고 게시판은 호스트(내 PC)에서 돕니다.
+컨테이너 안에서 `localhost:5000`은 **컨테이너 자기 자신의 5000번**이라, 거기엔
+아무것도 없습니다.
+
+**해결** — HTTP Request 노드의 주소를
+`http://host.docker.internal:5000/api/security/events`로 바꿨습니다.
+
+### 2. DB에 한 줄도 쌓이지 않았다
+
+**증상** — 테이블은 만들어졌는데 `SELECT COUNT(*)`가 계속 `0`이었습니다.
+
+**원인** — 게시판 서버(5000번)가 꺼져 있었습니다. n8n은 저장 요청을 보냈지만 받을
+쪽이 없었습니다. n8n 실행 기록만 보고 "저장했다"고 넘기면 놓치는 지점입니다.
+
+**해결** — `python app.py`로 게시판을 먼저 띄운 뒤 다시 실행했고, `201`과 함께
+`id`가 돌아오는 것을 확인했습니다. 이후 **DB를 직접 조회해서** 확인하는 것을
+절차에 넣었습니다.
+
+### 3. Code 노드 언어 선택 때문에 판정 단계가 실행되지 않았다
+
+문제지 B4 배점 항목입니다.
+
+- **무슨 일이 있었나:** Code 노드를 Python으로 선택했더니 실행 기록에
+  `Python runner unavailable: Python 3 is missing from this system` 오류가 나면서
+  판정 노드에서 즉시 중단되었습니다.
+- **원인:** 현재 n8n 실행 환경에는 Code 노드의 Python 실행에 필요한 Python 3
+  러너가 준비되어 있지 않았습니다. `$input`을 사용하는 작성 코드도 JavaScript
+  방식이었습니다.
+- **어떻게 해결했나:** 노드 언어를 JavaScript로 바꾸고 `Run Once for All Items`에서
+  `alerts.map(...)`으로 경보 2건을 각각 하나의 아이템으로 반환했습니다. 최신 성공
+  실행에서 노드명이 `판정 (JavaScript)`로 표시되고 2개 아이템이 출력되는 것을
+  확인했습니다.
+
+### 4. 게시판 저장 요청이 400으로 거절되었다
+
+**증상** — 메신저에는 올바른 값이 도착했지만 게시판 저장 노드만 400이 났습니다.
+
+**원인** — JSON 본문 전체를 표현식으로 만든 상태에서 각 값에도 `=`를 붙여
+`decision`이 `deny`가 아니라 `=deny`라는 문자열로 전달되었습니다. 같은 이유로
+`student`, `src_ip`, `fail_count` 앞에도 `=`가 붙었습니다.
+
+**해결** — JSON 값마다 붙어 있던 `=` 접두사를 제거했습니다. 이후 한 번의 실행에서
+deny와 allow 요청이 각각 201로 저장되는 것을 확인했습니다.
+
+## AI 활용 구분
+
+- **AI에게 맡긴 일:** 게시판 구조 분리와 보안 이벤트 API·테스트 초안, n8n 오류
+  원인 분석, 증적 수집 스크립트와 제출 문서 초안을 도움받았습니다.
+- **내가 직접 판단한 일:** 슬랙·디스코드·텔레그램을 실제 계정에 모두 연결하고,
+  허용·거부 테스트 데이터를 직접 실행해 도착 화면과 대시보드를 확인했습니다.
+  비밀값은 `.env`와 n8n 내부 설정에만 두고 제출 캡처에서는 가렸습니다.
+- **AI 제안을 따르지 않은 일:** 메신저 일부를 `httpbin`으로 대체할 수 있었지만,
+  실제 3종 연동을 확인하는 것이 과제 목표에 더 맞다고 판단해 대체하지 않았습니다.
+
+## 보안
+
+- DB 비밀번호·애플리케이션 API 키·n8n Webhook 주소는 **`.env`에서** 읽습니다.
+  저장소에는 값이 없는 `.env.example`만 있습니다.
+- 메신저 Webhook과 봇 토큰은 저장소 코드가 아니라 **로컬 n8n HTTP Request 노드**에
+  설정했습니다. 게시판의 `X-API-Key`는 n8n Credential로 주입하며, 워크플로를
+  Export할 때는 메신저 주소와 Credential 값을 반드시 `<REDACTED>`로 바꿉니다.
+- 테스트 데이터는 과제에서 지정한 합성 IP(`1.2.3.114`, `192.168.0.10`)만 씁니다.
+  실제 사람의 계정·이메일·전화번호를 쓰지 않습니다.
+- 개발 중 사용한 localhost용 n8n 테스트 Webhook 경로는 폐기하고 현재 production
+  Webhook을 사용합니다. 메신저 비밀 주소가 보이는 n8n 상세 화면은 증적에서 제외했습니다.
+
+## 심화 (S1)
+
+`GET /api/security/events/summary?student=<이름>`으로 허용·거부 건수와 거부가 많은
+상위 IP를 함께 봅니다.
+
+```json
+{ "student": "...", "by_decision": {"allow": 1, "deny": 1},
+  "top_deny_ips": [{"src_ip": "1.2.3.114", "fails": 20}] }
 ```
-
-새 터미널을 열면 환경변수를 다시 설정해야 한다. 코드 변경 후 서버를 다시 시작하고
-`http://127.0.0.1:5000`의 헤더 메뉴를 누른다.
-
-## docker-compose.yml について
-
-1차 가이드대로 게시판 전용 MySQL(`flask_mysql`, 3307)을 띄우던 파일이다.
-2차에서 3306의 `mysql-lab`으로 옮기면서 더 이상 쓰지 않는다.
-컨테이너는 중지만 해둔 상태이므로 되살리려면 `docker compose start`.
-완전히 정리하려면 `docker compose down -v` (볼륨까지 삭제, 되돌릴 수 없음).
-
-## 원본 가이드에서 고친 것
-
-1. **포트 충돌** — MySQL 3306은 `mysql-lab`, Flask 5000은 `_6_test`가 사용 중이었다.
-   DB는 3306을 공유한다. 앱 포트는 5000으로 되돌렸으므로 `_6_test`와 동시 실행은 안 된다.
-2. **`get_posts()`의 잡문자열** — 1차 붙여넣기에 `Under Construction`이 섞여 있어 제거.
-   (2차 원문에는 없다. 복사 사고였다.)
-3. **requirements 버전 고정 해제** — Python 3.14용 휠이 없어 `>=` 하한으로 변경.
-4. **모달이 안 닫히는 버그** — 원본은 `class="... hidden flex ..."`라 `hidden`을 빼도
-   항상 flex로 남았다. `showModal()`/`hideModal()`로 `hidden`↔`flex`를 함께 토글.
-5. **XSS** — 수정/삭제 버튼을 `onclick` 문자열 조립 대신 `addEventListener`로 연결.
-   원본 `escapeAttr`은 `<`, `&`를 처리하지 않아 제목에 태그를 넣으면 실행됐다.
-   `category`, `author`에도 `escapeHtml` 적용.
-6. **JWT 시크릿 키 연장** — 28바이트라 PyJWT가 경고를 냈다.
-7. **collation** — 컨테이너 기본값이 `utf8mb4_0900_ai_ci`라 가이드 명세인
-   `utf8mb4_unicode_ci`로 교정.
-
-## 주의
-
-DB 비밀번호, JWT 키, n8n Webhook, 보안 API 키와 공공데이터 키는 `.env`에만 둔다.
-`.env.example`에는 키 이름과 예시 형식만 두고 실제 값은 넣지 않는다. 과거 커밋에 사용한
-n8n Webhook은 제출 전에 폐기하고 새 Webhook으로 교체한다.

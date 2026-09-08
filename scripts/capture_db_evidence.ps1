@@ -49,11 +49,12 @@ GROUP BY source, decision
 ORDER BY source, decision;
 '@
 
-Show-Query -Title 'n8n이 저장한 행 (source = login_alert_lab) — 학생 이름·출발지·판정 (D4)' -Sql @'
-SELECT id, student, src_ip, decision, severity, fail_count, created_at
+Show-Query -Title 'n8n이 최근 저장한 6건 — 학생 이름·출발지·판정 (D4)' -Sql @'
+SELECT id, student, src_ip, decision, severity, fail_count
 FROM security_events
 WHERE source = 'login_alert_lab'
-ORDER BY id;
+ORDER BY id DESC
+LIMIT 6;
 '@
 
 Write-Host ''

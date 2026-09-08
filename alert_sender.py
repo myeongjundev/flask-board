@@ -32,7 +32,11 @@ def main():
         response = requests.post(N8N_WEBHOOK_URL, json=payload, timeout=TIMEOUT_SECONDS)
         response.raise_for_status()
     except requests.RequestException as exc:
-        print(f"[n8n] 전송 실패: {exc}", file=sys.stderr)
+        error_type = type(exc).__name__
+        print(
+            f"[n8n] 전송 실패 ({error_type}): n8n 연결과 워크플로 상태를 확인하세요.",
+            file=sys.stderr,
+        )
         return 1
     print(f"[n8n] POST -> {response.status_code}")
     return 0
