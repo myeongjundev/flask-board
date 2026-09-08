@@ -70,6 +70,13 @@ alert_sender.py                                                my_new_board_db
 
 ![Code 노드 출력](images/03-code-output.png)
 
+### 판정 기준을 바꾸면 결과가 뒤집힌다
+
+`DENY_LEVEL`을 10에서 3으로 낮추면 같은 입력에서 `192.168.0.10`(level 3)이
+`allow`에서 `deny`로 바뀝니다. 기준은 확인 후 10으로 되돌렸습니다.
+
+![DENY_LEVEL 3](images/10-deny-level-3.png)
+
 ### 메신저 도착
 
 ![슬랙](images/04-slack.png)
@@ -229,4 +236,49 @@ deny와 allow 요청이 각각 201로 저장되는 것을 확인했습니다.
 ```json
 { "student": "...", "by_decision": {"allow": 1, "deny": 1},
   "top_deny_ips": [{"src_ip": "1.2.3.114", "fails": 20}] }
+```
+
+## 심화 (S4) — 작업 스케줄러로 5분마다 자동 실행
+
+`alert_sender.py`를 사람이 부르지 않아도 5분마다 실행합니다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\register_alert_task.ps1
+```
+
+등록되는 작업은 `\SKT-ALEPH-TEMP\TEMP-alert-sender-5min-DELETE-AFTER-SUBMIT`
+입니다. 제출이 끝나면 지워야 하는 임시 작업이라, 작업 스케줄러 목록에서
+이름만으로 용도와 처분 시점이 읽히게 두었습니다.
+
+파이썬을 스케줄러에 바로 걸면 세 가지가 깨집니다. 스케줄러는 시작 위치를
+보장하지 않아 옆의 `.env`를 못 읽고, PATH가 로그인 셸과 달라 `python`이 안
+잡히며, 콘솔이 cp949라 한글 오류 메시지에서 `UnicodeEncodeError`가 납니다.
+`scripts/run_alert_sender.ps1`이 셋을 모두 처리한 뒤 파이썬을 부릅니다.
+
+실행 기록입니다. n8n이 아직 안 켜져 있던 구간과 켜진 뒤의 구간이 한 파일에
+같이 남았습니다.
+
+```text
+[2026-09-08 11:51:18] SEND_FAILED (exit=1)
+[2026-09-08 12:01:35] SEND_FAILED (exit=1)
+[2026-09-08 12:02:22] SEND_FAILED (exit=1)
+[2026-09-08 12:06:01] OK (exit=0)
+[2026-09-08 12:11:39] OK (exit=0)
+[2026-09-08 12:16:40] OK (exit=0)
+[2026-09-08 12:21:40] OK (exit=0)
+[2026-09-08 12:26:39] OK (exit=0)
+[2026-09-08 12:31:40] OK (exit=0)
+```
+
+이 한 파일이 두 가지를 동시에 보입니다. **S4** — 5분 간격으로 사람 손 없이
+실행된다. **A3** — n8n에 못 보내도 프로그램이 죽지 않고 오류만 남기고
+정상 종료한다.
+
+![작업 스케줄러](images/13-task-scheduler.png)
+![실행 기록](images/14-task-log.png)
+
+제출이 끝나면 반드시 지웁니다. 그대로 두면 5분마다 계속 요청이 갑니다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\unregister_alert_task.ps1
 ```
