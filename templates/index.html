@@ -8,16 +8,7 @@
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
 
-<!-- Navbar -->
-<header class="bg-white shadow-sm sticky top-0 z-10">
-  <div class="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center gap-4">
-    <div class="flex items-center gap-4">
-      <h1 class="text-xl font-bold text-indigo-600 cursor-pointer" onclick="resetAndLoad()">✨ 모던 게시판</h1>
-      <a href="/public-post" class="text-sm font-semibold text-sky-600 hover:text-sky-800">🧭 부산 테마여행</a>
-    </div>
-    <div id="auth-nav" class="flex items-center space-x-3"></div>
-  </div>
-</header>
+{% include 'partials/_nav.html' %}
 
 <!-- Main Container -->
 <main class="max-w-4xl mx-auto px-4 py-6 flex-1 w-full">
@@ -98,16 +89,21 @@ function hideModal(id) { const m = document.getElementById(id); m.classList.add(
 
 function updateAuthUI() {
   const nav = document.getElementById('auth-nav');
+  const mobileNav = document.getElementById('auth-nav-mobile');
   const writeBtn = document.getElementById('write-btn');
   if (token && currentUsername) {
-    nav.innerHTML = `
+    const signedIn = `
       <span class="text-sm font-medium text-gray-700">안녕하세요, <strong class="text-indigo-600">${escapeHtml(currentUsername)}</strong>님</span>
       <button onclick="logout()" class="text-sm text-red-500 hover:underline">로그아웃</button>`;
+    nav.innerHTML = signedIn;
+    mobileNav.innerHTML = signedIn;
     writeBtn.classList.remove('hidden');
   } else {
-    nav.innerHTML = `
+    const signedOut = `
       <button onclick="openAuthModal(true)" class="text-sm text-indigo-600 font-medium hover:underline">로그인</button>
       <button onclick="openAuthModal(false)" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">회원가입</button>`;
+    nav.innerHTML = signedOut;
+    mobileNav.innerHTML = signedOut;
     writeBtn.classList.add('hidden');
   }
 }

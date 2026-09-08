@@ -1,0 +1,57 @@
+<header class="bg-white shadow-sm sticky top-0 z-20">
+  <div class="max-w-6xl mx-auto px-4">
+    <div class="flex justify-between items-center h-16">
+      <a href="/" class="text-xl font-bold text-indigo-600 shrink-0">✨ 모던 게시판</a>
+      <nav class="hidden md:flex items-center space-x-1">
+        <a href="/" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">게시판</a>
+        <a href="/dashboard" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">보안 대시보드</a>
+        <a href="/public-post" class="px-3 py-2 rounded-lg text-sm font-medium text-sky-700 bg-sky-50 hover:bg-sky-100">부산 테마여행</a>
+        <span id="auth-nav" class="flex items-center space-x-2 ml-2"></span>
+      </nav>
+      <button id="nav-toggle" type="button"
+              class="md:hidden inline-flex items-center justify-center p-2 rounded-lg text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              aria-label="메뉴 열기" aria-expanded="false" aria-controls="mobile-menu">
+        <svg id="icon-open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+        <svg id="icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <nav id="mobile-menu" class="md:hidden hidden pb-3 space-y-1 border-t border-gray-100 pt-2">
+      <a href="/" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">게시판</a>
+      <a href="/dashboard" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">보안 대시보드</a>
+      <a href="/public-post" class="block px-3 py-2 rounded-lg text-sm font-medium text-sky-700 bg-sky-50 hover:bg-sky-100">부산 테마여행</a>
+      <span id="auth-nav-mobile" class="block px-3 py-2 space-x-2"></span>
+    </nav>
+  </div>
+</header>
+<script>
+  (function () {
+    const button = document.getElementById('nav-toggle');
+    const menu = document.getElementById('mobile-menu');
+    const openIcon = document.getElementById('icon-open');
+    const closeIcon = document.getElementById('icon-close');
+    if (!button || !menu) return;
+    function closeMenu() {
+      menu.classList.add('hidden');
+      openIcon.classList.remove('hidden');
+      closeIcon.classList.add('hidden');
+      button.setAttribute('aria-expanded', 'false');
+      button.setAttribute('aria-label', '메뉴 열기');
+    }
+    button.addEventListener('click', function () {
+      const opening = menu.classList.contains('hidden');
+      if (!opening) return closeMenu();
+      menu.classList.remove('hidden');
+      openIcon.classList.add('hidden');
+      closeIcon.classList.remove('hidden');
+      button.setAttribute('aria-expanded', 'true');
+      button.setAttribute('aria-label', '메뉴 닫기');
+    });
+    window.addEventListener('resize', function () {
+      if (window.innerWidth >= 768) closeMenu();
+    });
+  })();
+</script>

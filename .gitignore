@@ -6,6 +6,9 @@ __pycache__/
 venv/
 .venv/
 .ipynb_checkpoints/
+*.sqlite
+*.sqlite3
+*.db
 
 # 실행하면 다시 쌓인다
 *.log

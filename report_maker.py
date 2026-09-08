@@ -7,14 +7,14 @@ from datetime import datetime
 from pathlib import Path
 
 import requests  # pip install requests
+from dotenv import load_dotenv
 
 # ── 설정 ─────────────────────────────────────────────
-# 각자 본인 n8n 웹훅 주소를 넣으세요.
-# 환경변수 N8N_WEBHOOK_URL 이 설정돼 있으면 그 값을 우선 사용합니다.
-# WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "")   # ← 여기 또는 환경변수에
-WEBHOOK_URL = "http://localhost:5678/webhook-test/dbf71751-63bc-4cdd-ab0f-52b729f353bd"
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
+# Webhook 주소는 비밀값이므로 .env 또는 셸 환경변수로만 설정한다.
+WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "").strip()
 
-BASE_DIR = Path(__file__).resolve().parent       # 스크립트가 있는 폴더 기준
 REPORT_PATH = BASE_DIR / "report.md"
 LOG_PATH = BASE_DIR / "report_maker.log"
 TIMEOUT = 10        # 초

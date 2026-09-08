@@ -4,7 +4,7 @@ services:
     container_name: flask_mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD를 .env에 설정하세요}
       MYSQL_DATABASE: my_new_board_db
     ports:
       - "3307:3306"

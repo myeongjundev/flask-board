@@ -7,12 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
-  <header class="bg-white shadow-sm sticky top-0 z-10">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center gap-4">
-      <a href="{{ url_for('index') }}" class="text-xl font-bold text-indigo-600">✨ 모던 게시판</a>
-      <span class="text-sm font-semibold text-sky-700">🧭 부산 테마여행</span>
-    </div>
-  </header>
+  {% include 'partials/_nav.html' %}
 
   <main class="max-w-6xl mx-auto px-4 py-8">
     <div class="mb-6">

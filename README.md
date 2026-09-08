@@ -2,12 +2,26 @@
 
 제미나이 가이드 기반. JWT 인증 + 검색/필터 + 커서 기반 페이징.
 
+## 2026-09-08 로그인 경보 자동화 확장
+
+강사 실습의 구조분리 버전을 이 저장소에 맞게 통합했다.
+
+- `config.py`: `.env`에서 DB·JWT·보안 API·공공데이터 설정 로드
+- `models/`: 기존 사용자·게시글과 신규 `security_events` 모델
+- `controllers/`: 화면·인증·게시글·보안 이벤트·부산 여행 요청 분리
+- `/dashboard`: n8n이 저장한 허용·거부 결과 확인
+- `POST /api/security/events`: `X-API-Key`로 보호된 저장 API
+- `GET /api/security/events`: 학생별 최신 기록 조회
+- `alert_sender.py`: deny/allow 판정용 합성 경보 두 건 전송
+
+기존 `/public-post`, `/busan-travel` 주소와 게시글 데이터 구조는 유지한다.
+
 ## 현재 구성 (2차 최종)
 
 2차 요구사항인 "기존 MySQL 서버에 접속해서 새 스키마를 생성해 사용"을 그대로 따른다.
 게시판 전용 컨테이너를 띄우지 않고, 수업용으로 이미 돌고 있는 `mysql-lab`을 재사용한다.
 
-- 서버: `mysql-lab` 컨테이너, 포트 **3306**, 계정 `root` / `123456`
+- 서버: `mysql-lab` 컨테이너, 포트 **3306**, 접속 정보는 `.env`의 `DATABASE_URL`
 - 스키마: `my_new_board_db` (utf8mb4 / utf8mb4_unicode_ci)
 - 테이블: `users`, `posts` (SQLAlchemy가 자동 생성)
 - 앱 포트: **5000** (`_6_test/app.py`도 5000을 쓰므로 동시에 띄울 수 없다)
@@ -16,8 +30,10 @@
 
 ## 실행
 
-```
+```powershell
 pip install -r requirements.txt
+Copy-Item .env.example .env
+# .env의 DATABASE_URL, JWT_SECRET_KEY, SECURITY_API_KEY 등을 본인 값으로 수정
 python app.py
 ```
 
@@ -92,5 +108,6 @@ python app.py
 
 ## 주의
 
-`JWT_SECRET_KEY`와 DB 비밀번호가 소스에 하드코딩되어 있다. 실습용이라 그대로 뒀지만
-공개 저장소에 올리거나 배포할 때는 환경변수로 빼야 한다.
+DB 비밀번호, JWT 키, n8n Webhook, 보안 API 키와 공공데이터 키는 `.env`에만 둔다.
+`.env.example`에는 키 이름과 예시 형식만 두고 실제 값은 넣지 않는다. 과거 커밋에 사용한
+n8n Webhook은 제출 전에 폐기하고 새 Webhook으로 교체한다.
