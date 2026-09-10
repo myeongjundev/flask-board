@@ -1,8 +1,9 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from controllers.authz import current_user
 from extensions import db
-from models import Post
+from models import ROLE_ADMIN, Post
 
 post_bp = Blueprint("post", __name__, url_prefix="/api/posts")
 
@@ -67,10 +68,25 @@ def update_post(post_id):
 @post_bp.delete("/<int:post_id>")
 @jwt_required()
 def delete_post(post_id):
-    user_id = int(get_jwt_identity())
+    """작성자 본인, 그리고 관리자(2)가 삭제할 수 있다.
+
+    수정은 여전히 본인만 가능하다. 관리자에게 준 것은 부적절한 글을 내리는
+    삭제 권한이지, 남의 글 내용을 바꾸는 권한이 아니다.
+    """
+    user = current_user()
+    if user is None:
+        # 토큰은 살아 있는데 계정이 삭제된 경우
+        return jsonify({"msg": "로그인이 필요합니다."}), 401
     post = db.get_or_404(Post, post_id)
-    if post.author_id != user_id:
+    is_owner = post.author_id == user.id
+    is_moderator = user.role >= ROLE_ADMIN
+    if not (is_owner or is_moderator):
         return jsonify({"msg": "권한이 없습니다."}), 403
+    author = post.author.username
     db.session.delete(post)
     db.session.commit()
-    return jsonify({"msg": "삭제되었습니다."})
+    if is_owner:
+        return jsonify({"msg": "삭제되었습니다.", "moderated": False})
+    return jsonify(
+        {"msg": f"관리자 권한으로 {author}님의 글을 삭제했습니다.", "moderated": True}
+    )

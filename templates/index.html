@@ -76,36 +76,28 @@
 <script>
 let currentCursor = null;
 let isAuthModeLogin = true;
-let currentUsername = localStorage.getItem('username');
+// 로그인 여부의 기준은 서버가 쿠키로 판정한 CURRENT_USER 다.
+// localStorage 토큰은 fetch 요청의 Authorization 헤더용으로만 쓴다.
+let currentUsername = window.CURRENT_USER ? window.CURRENT_USER.username : null;
 let token = localStorage.getItem('token');
 
 document.addEventListener('DOMContentLoaded', () => {
   updateAuthUI();
   loadPosts(true);
+  // 403 예외 화면의 "로그인하기" 버튼(/?login=1)에서 넘어온 경우
+  if (new URLSearchParams(location.search).get('login') === '1' && !token) {
+    openAuthModal(true);
+  }
 });
 
 function showModal(id) { const m = document.getElementById(id); m.classList.remove('hidden'); m.classList.add('flex'); }
 function hideModal(id) { const m = document.getElementById(id); m.classList.add('hidden'); m.classList.remove('flex'); }
 
+// 헤더의 유저명·권한 표기는 _nav.html 에서 서버가 렌더링한다.
+// 여기서는 글쓰기 버튼 노출만 로그인 상태에 맞춘다.
 function updateAuthUI() {
-  const nav = document.getElementById('auth-nav');
-  const mobileNav = document.getElementById('auth-nav-mobile');
   const writeBtn = document.getElementById('write-btn');
-  if (token && currentUsername) {
-    const signedIn = `
-      <span class="text-sm font-medium text-gray-700">안녕하세요, <strong class="text-indigo-600">${escapeHtml(currentUsername)}</strong>님</span>
-      <button onclick="logout()" class="text-sm text-red-500 hover:underline">로그아웃</button>`;
-    nav.innerHTML = signedIn;
-    mobileNav.innerHTML = signedIn;
-    writeBtn.classList.remove('hidden');
-  } else {
-    const signedOut = `
-      <button onclick="openAuthModal(true)" class="text-sm text-indigo-600 font-medium hover:underline">로그인</button>
-      <button onclick="openAuthModal(false)" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">회원가입</button>`;
-    nav.innerHTML = signedOut;
-    mobileNav.innerHTML = signedOut;
-    writeBtn.classList.add('hidden');
-  }
+  writeBtn.classList.toggle('hidden', !window.CURRENT_USER);
 }
 
 async function loadPosts(reset = false) {
@@ -134,6 +126,8 @@ async function loadPosts(reset = false) {
 
   data.posts.forEach(post => {
     const isOwner = currentUsername && post.author === currentUsername;
+    // 관리자(2)는 남의 글도 삭제할 수 있다. 수정은 본인만 가능하다.
+    const isModerator = !!window.CURRENT_USER && window.CURRENT_USER.role >= 2;
     const div = document.createElement('div');
     div.className = "bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition";
     div.innerHTML = `
@@ -144,21 +138,29 @@ async function loadPosts(reset = false) {
       <h3 class="text-lg font-bold text-gray-900 mb-1">${escapeHtml(post.title)}</h3>
       <p class="text-sm text-gray-600 whitespace-pre-line mb-4">${escapeHtml(post.content)}</p>`;
 
-    if (isOwner) {
+    if (isOwner || isModerator) {
       const actions = document.createElement('div');
-      actions.className = "flex justify-end space-x-2";
+      actions.className = "flex justify-end items-center space-x-2";
 
-      const editBtn = document.createElement('button');
-      editBtn.className = "text-xs text-indigo-600 hover:underline";
-      editBtn.textContent = "수정";
-      editBtn.addEventListener('click', () => openEditModal(post.id, post.title, post.content, post.category));
+      if (isOwner) {
+        const editBtn = document.createElement('button');
+        editBtn.className = "text-xs text-indigo-600 hover:underline";
+        editBtn.textContent = "수정";
+        editBtn.addEventListener('click', () => openEditModal(post.id, post.title, post.content, post.category));
+        actions.appendChild(editBtn);
+      }
 
       const delBtn = document.createElement('button');
       delBtn.className = "text-xs text-red-500 hover:underline";
-      delBtn.textContent = "삭제";
-      delBtn.addEventListener('click', () => deletePost(post.id));
+      if (isOwner) {
+        delBtn.textContent = "삭제";
+      } else {
+        // 남의 글을 지우는 것이므로 관리자 권한임을 화면에 드러낸다.
+        delBtn.textContent = "관리자 삭제";
+        delBtn.className = "text-xs font-medium text-red-600 border border-red-200 rounded-md px-2 py-1 hover:bg-red-50";
+      }
+      delBtn.addEventListener('click', () => deletePost(post.id, isOwner ? null : post.author));
 
-      actions.appendChild(editBtn);
       actions.appendChild(delBtn);
       div.appendChild(actions);
     }
@@ -203,9 +205,10 @@ async function submitAuth() {
       currentUsername = data.username;
       localStorage.setItem('token', token);
       localStorage.setItem('username', currentUsername);
-      updateAuthUI();
+      localStorage.setItem('role', data.role);
       closeAuthModal();
-      loadPosts(true);
+      // 등급 링크(골드/관리자)는 서버가 렌더링하므로 새로고침해야 반영된다.
+      location.reload();
     } else {
       alert('회원가입 완료! 로그인해주세요.');
       openAuthModal(true);
@@ -215,14 +218,8 @@ async function submitAuth() {
   }
 }
 
-function logout() {
-  localStorage.removeItem('token');
-  localStorage.removeItem('username');
-  token = null;
-  currentUsername = null;
-  updateAuthUI();
-  loadPosts(true);
-}
+// 로그아웃은 _nav.html 의 navLogout() 이 담당한다.
+// 서버 쿠키까지 지워야 /gold, /admin 접근이 함께 막힌다.
 
 function openModal() {
   document.getElementById('post-modal-title').innerText = '새 글 작성';
@@ -268,13 +265,22 @@ async function submitPost() {
   }
 }
 
-async function deletePost(id) {
-  if (!confirm('정말 삭제하시겠습니까?')) return;
+async function deletePost(id, moderatedAuthor = null) {
+  const question = moderatedAuthor
+    ? `관리자 권한으로 ${moderatedAuthor}님의 글을 삭제합니다. 계속할까요?`
+    : '정말 삭제하시겠습니까?';
+  if (!confirm(question)) return;
   const res = await fetch(`/api/posts/${id}`, {
     method: 'DELETE',
     headers: {'Authorization': `Bearer ${token}`}
   });
-  if (res.ok) { loadPosts(true); } else { alert('삭제 권한이 없습니다.'); }
+  const data = await res.json().catch(() => ({}));
+  if (res.ok) {
+    if (data.moderated) alert(data.msg);
+    loadPosts(true);
+  } else {
+    alert(data.msg || '삭제 권한이 없습니다.');
+  }
 }
 
 function escapeHtml(str) {
