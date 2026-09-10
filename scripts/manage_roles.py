@@ -11,6 +11,7 @@ db.create_all()은 이미 존재하는 테이블에 컬럼을 추가하지 못�
 import argparse
 import sys
 from pathlib import Path
+from unicodedata import east_asian_width
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
@@ -37,15 +38,23 @@ def ensure_column():
     return True
 
 
+def _pad(text, width):
+    """한글은 콘솔에서 두 칸을 차지하므로 표시 폭으로 맞춘다."""
+    display = sum(2 if east_asian_width(ch) in "WF" else 1 for ch in text)
+    return text + " " * max(width - display, 0)
+
+
 def list_users():
     users = User.query.order_by(User.role.desc(), User.id.asc()).all()
     if not users:
         print("등록된 회원이 없습니다.")
         return
-    print(f"{'ID':>4}  {'등급':<8} {'아이디'}")
+    print(f"{'ID':>4}  {_pad('등급', 14)}{'아이디'}")
     print("-" * 40)
     for user in users:
-        print(f"{user.id:>4}  {user.role_name}({user.role}){'':<3} {user.username}")
+        print(f"{user.id:>4}  {_pad(f'{user.role_name}({user.role})', 14)}{user.username}")
+    print("-" * 40)
+    print(f"총 {len(users)}명  ·  users 테이블의 role 컬럼 값")
 
 
 def promote(username, role):

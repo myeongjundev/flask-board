@@ -21,7 +21,8 @@
     </p>
   </div>
 
-  <div class="grid md:grid-cols-3 gap-3 mb-6">
+  {# 숫자 세 개뿐이라 좁은 화면에서도 가로로 둔다. 세로로 쌓으면 화면을 다 먹는다. #}
+  <div class="grid grid-cols-3 gap-3 mb-6">
     <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
       <p class="text-xs text-gray-500 mb-1">전체 회원</p>
       <p class="text-2xl font-bold text-gray-900" id="stat-total">-</p>
@@ -44,7 +45,9 @@
       <button onclick="loadUsers()" class="text-sm text-indigo-600 hover:underline">새로고침</button>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-sm">
+      {# 좁은 화면에서는 칸을 접지 말고 가로로 스크롤시킨다.
+         "현재 등급"이 글자마다 줄바꿈되면 표를 읽을 수 없다. #}
+      <table class="w-full min-w-[640px] text-sm whitespace-nowrap">
         <thead class="bg-gray-50 text-gray-500">
           <tr>
             <th class="text-left px-5 py-3 font-medium">ID</th>
@@ -75,21 +78,7 @@ const ROLE_BADGE = {
   2: 'bg-indigo-100 text-indigo-700',
 };
 
-function getCookie(name) {
-  const hit = document.cookie.split('; ').find(row => row.startsWith(name + '='));
-  return hit ? decodeURIComponent(hit.split('=')[1]) : null;
-}
-
-/* 토큰은 localStorage(헤더)와 쿠키 두 경로가 모두 유효하다.
-   쿠키로 보낼 때는 CSRF 토큰이 필요하므로 둘 다 실어 보낸다. */
-function authHeaders(extra = {}) {
-  const headers = { ...extra };
-  const token = localStorage.getItem('token');
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const csrf = getCookie('csrf_access_token');
-  if (csrf) headers['X-CSRF-TOKEN'] = csrf;
-  return headers;
-}
+// getCookie() 와 authHeaders() 는 _nav.html 이 모든 페이지에 제공한다.
 
 function flash(message, ok = true) {
   const box = document.getElementById('flash');

@@ -2,7 +2,9 @@
   <div class="max-w-6xl mx-auto px-4">
     <div class="flex justify-between items-center h-16">
       <a href="/" class="text-xl font-bold text-indigo-600 shrink-0">✨ 모던 게시판</a>
-      <nav class="hidden md:flex items-center space-x-1">
+      {# 등급 링크가 붙으면 항목이 8개까지 늘어난다. 768px에서는 단어 중간이
+         줄바꿈되며 헤더가 깨지므로, 가로 메뉴는 1024px 이상에서만 편다. #}
+      <nav class="hidden lg:flex items-center space-x-1 whitespace-nowrap">
         <a href="/" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">게시판</a>
         <a href="/dashboard" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">보안 대시보드</a>
         <a href="/public-post" class="px-3 py-2 rounded-lg text-sm font-medium text-sky-700 bg-sky-50 hover:bg-sky-100">부산 테마여행</a>
@@ -37,18 +39,35 @@
           {% endif %}
         </span>
       </nav>
-      <button id="nav-toggle" type="button"
-              class="md:hidden inline-flex items-center justify-center p-2 rounded-lg text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              aria-label="메뉴 열기" aria-expanded="false" aria-controls="mobile-menu">
-        <svg id="icon-open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-        </svg>
-        <svg id="icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </button>
+      {# 메뉴를 접는 폭에서도 유저명과 등급은 헤더에 남긴다.
+         "누가 어떤 등급으로 접속했는지"가 이 과제의 확인 대상이라,
+         메뉴를 열어야만 보이면 화면 증거로 쓸 수 없다. #}
+      <div class="flex items-center gap-2 lg:hidden">
+        {% if current_user %}
+        <span class="text-sm font-medium text-gray-700 truncate max-w-[8rem]">
+          <strong class="text-indigo-600">{{ current_user.username }}</strong>님
+        </span>
+        <span class="shrink-0 text-xs font-semibold px-2 py-1 rounded-full whitespace-nowrap
+          {% if current_user.role >= ROLE_ADMIN %}bg-indigo-100 text-indigo-700
+          {% elif current_user.role >= ROLE_GOLD %}bg-amber-100 text-amber-700
+          {% else %}bg-gray-100 text-gray-600{% endif %}"
+          title="users.role = {{ current_user.role }}">
+          {{ current_user.role_name }} ({{ current_user.role }})
+        </span>
+        {% endif %}
+        <button id="nav-toggle" type="button"
+                class="shrink-0 inline-flex items-center justify-center p-2 rounded-lg text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                aria-label="메뉴 열기" aria-expanded="false" aria-controls="mobile-menu">
+          <svg id="icon-open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+          <svg id="icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
     </div>
-    <nav id="mobile-menu" class="md:hidden hidden pb-3 space-y-1 border-t border-gray-100 pt-2">
+    <nav id="mobile-menu" class="lg:hidden hidden pb-3 space-y-1 border-t border-gray-100 pt-2">
       <a href="/" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">게시판</a>
       <a href="/dashboard" class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">보안 대시보드</a>
       <a href="/public-post" class="block px-3 py-2 rounded-lg text-sm font-medium text-sky-700 bg-sky-50 hover:bg-sky-100">부산 테마여행</a>
@@ -58,17 +77,9 @@
       {% if current_user and current_user.role >= ROLE_ADMIN %}
       <a href="/admin" class="block px-3 py-2 rounded-lg text-sm font-medium text-white bg-slate-700 hover:bg-slate-800">🛠️ 관리자</a>
       {% endif %}
+      {# 유저명·등급은 헤더 바에 이미 떠 있으므로 여기서는 되풀이하지 않는다. #}
       <span id="auth-nav-mobile" class="block px-3 py-2 space-x-2">
         {% if current_user %}
-        <span class="text-sm font-medium text-gray-700">
-          <strong class="text-indigo-600">{{ current_user.username }}</strong>님
-        </span>
-        <span class="text-xs font-semibold px-2 py-1 rounded-full
-          {% if current_user.role >= ROLE_ADMIN %}bg-indigo-100 text-indigo-700
-          {% elif current_user.role >= ROLE_GOLD %}bg-amber-100 text-amber-700
-          {% else %}bg-gray-100 text-gray-600{% endif %}">
-          {{ current_user.role_name }} ({{ current_user.role }})
-        </span>
         <button onclick="navLogout()" class="text-sm text-red-500 hover:underline">로그아웃</button>
         {% elif request.endpoint == 'page.index' %}
         <button onclick="openAuthModal(true)" class="text-sm text-indigo-600 font-medium hover:underline">로그인</button>
@@ -86,6 +97,25 @@
     {'id': current_user.id, 'username': current_user.username,
      'role': current_user.role, 'role_name': current_user.role_name} | tojson
   }}{% else %}null{% endif %};
+
+  function getCookie(name) {
+    const hit = document.cookie.split('; ').find(row => row.startsWith(name + '='));
+    return hit ? decodeURIComponent(hit.split('=')[1]) : null;
+  }
+
+  /* 토큰은 두 경로가 모두 유효하다.
+       - localStorage: Authorization 헤더 (기존 방식)
+       - 쿠키: 페이지 이동과 fetch에 자동으로 실림. 단 변경 요청에는 CSRF 토큰이 필요하다.
+     둘 다 실어 보내야 localStorage가 비어 있어도(다른 탭에서 지웠거나 쿠키로만
+     로그인한 경우) 요청이 통과한다. */
+  function authHeaders(extra = {}) {
+    const headers = Object.assign({}, extra);
+    const token = localStorage.getItem('token');
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const csrf = getCookie('csrf_access_token');
+    if (csrf) headers['X-CSRF-TOKEN'] = csrf;
+    return headers;
+  }
 
   async function navLogout() {
     await fetch('/api/auth/logout', { method: 'POST' }).catch(function () {});
@@ -118,7 +148,7 @@
       button.setAttribute('aria-label', '메뉴 닫기');
     });
     window.addEventListener('resize', function () {
-      if (window.innerWidth >= 768) closeMenu();
+      if (window.innerWidth >= 1024) closeMenu();
     });
   })();
 </script>

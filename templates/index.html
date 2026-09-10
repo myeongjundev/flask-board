@@ -250,10 +250,7 @@ async function submitPost() {
 
   const res = await fetch(url, {
     method: method,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
+    headers: authHeaders({'Content-Type': 'application/json'}),
     body: JSON.stringify({title, content, category})
   });
 
@@ -272,7 +269,7 @@ async function deletePost(id, moderatedAuthor = null) {
   if (!confirm(question)) return;
   const res = await fetch(`/api/posts/${id}`, {
     method: 'DELETE',
-    headers: {'Authorization': `Bearer ${token}`}
+    headers: authHeaders()
   });
   const data = await res.json().catch(() => ({}));
   if (res.ok) {
