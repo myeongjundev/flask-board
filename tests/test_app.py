@@ -98,6 +98,42 @@ class BoardTestCase(unittest.TestCase):
         students = self.client.get("/api/security/students").get_json()["students"]
         self.assertEqual(students, ["합성학생"])
 
+    def test_security_events_support_paging_search_and_source(self):
+        headers = {"X-API-Key": "test-only-security-api-key"}
+        rows = [
+            ("192.0.2.1", "deny", "privilege-guard", "과잉권한 자동회수", "zz_rogue"),
+            ("192.0.2.1", "deny", "login-guard", "계정 잠금", "zz_user"),
+            ("192.0.2.2", "deny", "login-guard", "계정 잠금", "zz_other"),
+            ("192.0.2.3", "allow", "login_alert_lab", "허용", ""),
+        ]
+        for ip, decision, source, reason, users in rows:
+            response = self.client.post("/api/security/events", headers=headers, json={
+                "student": "합성학생", "src_ip": ip, "decision": decision,
+                "severity": "High", "fail_count": 1, "reason": reason,
+                "users": users, "source": source,
+            })
+            self.assertEqual(response.status_code, 201)
+
+        page = self.client.get("/api/security/events?limit=2&offset=2").get_json()
+        self.assertEqual((page["total"], page["count"], page["offset"]), (4, 2, 2))
+        # 최신순이라 둘째 쪽에는 두 번째·첫 번째로 넣은 이벤트가 온다.
+        self.assertEqual([e["source"] for e in page["events"]], ["login-guard", "privilege-guard"])
+
+        by_source = self.client.get("/api/security/events?source=login-guard").get_json()
+        self.assertEqual(by_source["total"], 2)
+        by_user = self.client.get("/api/security/events?q=zz_rogue").get_json()
+        self.assertEqual([e["source"] for e in by_user["events"]], ["privilege-guard"])
+        by_ip = self.client.get("/api/security/events?q=192.0.2.1&decision=deny").get_json()
+        self.assertEqual(by_ip["total"], 2)
+
+        summary = self.client.get("/api/security/events/summary").get_json()
+        self.assertEqual(
+            summary["by_source"],
+            {"privilege-guard": 1, "login-guard": 2, "login_alert_lab": 1},
+        )
+        # 거부 건수가 많은 IP가 먼저 온다.
+        self.assertEqual(summary["top_deny_ips"][0], {"src_ip": "192.0.2.1", "events": 2, "fails": 2})
+
 
 def tearDownModule():
     with default_app.app_context():

@@ -1,0 +1,49 @@
+{# 목록 하단 페이지 이동 막대. /admin 과 /dashboard 가 함께 쓴다.
+   renderPager(el, { page, pageSize, total, onChange }) 로 그린다. page 는 1부터. #}
+<script>
+  function renderPager(el, { page, pageSize, total, onChange }) {
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    const from = total ? (page - 1) * pageSize + 1 : 0;
+    const to = Math.min(page * pageSize, total);
+
+    // 현재 쪽 주변 5개만 보여 준다. 쪽수가 늘어도 막대가 한 줄을 넘지 않게.
+    const start = Math.max(1, Math.min(page - 2, pages - 4));
+    const numbers = [];
+    for (let n = start; n <= Math.min(pages, start + 4); n++) numbers.push(n);
+
+    const base = 'min-w-[2.25rem] h-9 px-2 rounded-lg text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed';
+    const idle = `${base} text-gray-600 hover:bg-gray-100`;
+    const active = `${base} bg-indigo-600 text-white`;
+
+    el.innerHTML = `
+      <p class="text-sm text-gray-500"><span class="font-semibold text-gray-800">${from}–${to}</span> / 총 ${total}건</p>
+      <div class="flex items-center gap-1">
+        <button type="button" data-page="${page - 1}" class="${idle}" ${page <= 1 ? 'disabled' : ''} aria-label="이전 쪽">‹</button>
+        ${numbers.map(n => `<button type="button" data-page="${n}" class="${n === page ? active : idle}" ${n === page ? 'aria-current="page"' : ''}>${n}</button>`).join('')}
+        <button type="button" data-page="${page + 1}" class="${idle}" ${page >= pages ? 'disabled' : ''} aria-label="다음 쪽">›</button>
+      </div>`;
+    el.querySelectorAll('button[data-page]').forEach(button => {
+      button.addEventListener('click', () => onChange(Number(button.dataset.page)));
+    });
+    return pages;
+  }
+
+  function formatDateTime(value) {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    const pad = n => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g,
+      char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+  }
+
+  // 검색창 입력마다 요청하지 않도록 잠깐 기다렸다가 한 번만 실행한다.
+  function debounce(fn, wait = 250) {
+    let timer;
+    return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), wait); };
+  }
+</script>

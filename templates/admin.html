@@ -9,61 +9,130 @@
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
 
 {% include 'partials/_nav.html' %}
+{% include 'partials/_pager.html' %}
 
-<main class="max-w-5xl mx-auto px-4 py-8 flex-1 w-full">
+<main class="max-w-6xl mx-auto px-4 py-6 flex-1 w-full">
 
-  <div class="rounded-2xl p-6 mb-6 bg-gradient-to-r from-slate-800 to-slate-600 text-white shadow-sm">
-    <p class="text-sm font-medium opacity-90 mb-1">ADMIN ONLY</p>
-    <h1 class="text-2xl font-bold mb-2">🛠️ 관리자 · 회원 관리</h1>
-    <p class="text-sm opacity-95">
-      {{ current_user.username }}님(등급 {{ current_user.role }})으로 접속했습니다.
-      회원 등급을 수정하거나 회원을 삭제할 수 있습니다.
-    </p>
+  <div class="rounded-2xl p-5 mb-5 bg-gradient-to-r from-slate-800 to-slate-600 text-white shadow-sm">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p class="text-xs font-semibold tracking-wider opacity-80 mb-1">ADMIN ONLY</p>
+        <h1 class="text-2xl font-bold">🛠️ 관리자 · 회원 관리</h1>
+        <p class="mt-1 text-sm opacity-90">
+          {{ current_user.username }}님(등급 {{ current_user.role }})으로 접속했습니다.
+          회원 등급을 부여·회수하고 허용목록 밖 관리자 계정을 점검합니다.
+        </p>
+      </div>
+      <a href="/dashboard" class="self-start sm:self-auto shrink-0 rounded-lg bg-white/15 px-3 py-2 text-sm font-medium hover:bg-white/25">🛡️ 보안 대시보드 →</a>
+    </div>
   </div>
 
-  {# 숫자 세 개뿐이라 좁은 화면에서도 가로로 둔다. 세로로 쌓으면 화면을 다 먹는다. #}
-  <div class="grid grid-cols-3 gap-3 mb-6">
-    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+  {# 카드를 누르면 회원 목록이 그 등급으로 걸러진다. #}
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+    <button type="button" data-role="" class="role-card text-left bg-white rounded-xl border border-gray-100 shadow-sm p-4 ring-indigo-500 hover:shadow">
       <p class="text-xs text-gray-500 mb-1">전체 회원</p>
       <p class="text-2xl font-bold text-gray-900" id="stat-total">-</p>
-    </div>
-    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-      <p class="text-xs text-gray-500 mb-1">골드</p>
-      <p class="text-2xl font-bold text-amber-500" id="stat-gold">-</p>
-    </div>
-    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+    </button>
+    <button type="button" data-role="2" class="role-card text-left bg-white rounded-xl border border-gray-100 shadow-sm p-4 ring-indigo-500 hover:shadow">
       <p class="text-xs text-gray-500 mb-1">관리자</p>
       <p class="text-2xl font-bold text-indigo-600" id="stat-admin">-</p>
-    </div>
+    </button>
+    <button type="button" data-role="1" class="role-card text-left bg-white rounded-xl border border-gray-100 shadow-sm p-4 ring-indigo-500 hover:shadow">
+      <p class="text-xs text-gray-500 mb-1">골드</p>
+      <p class="text-2xl font-bold text-amber-500" id="stat-gold">-</p>
+    </button>
+    <button type="button" data-role="0" class="role-card text-left bg-white rounded-xl border border-gray-100 shadow-sm p-4 ring-indigo-500 hover:shadow">
+      <p class="text-xs text-gray-500 mb-1">일반</p>
+      <p class="text-2xl font-bold text-gray-600" id="stat-user">-</p>
+    </button>
   </div>
 
   <div id="flash" class="hidden mb-4 rounded-xl px-4 py-3 text-sm"></div>
 
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-    <div class="px-5 py-4 border-b border-gray-100 flex justify-between items-center">
-      <h2 class="font-bold text-gray-900">회원 목록</h2>
-      <button onclick="loadUsers()" class="text-sm text-indigo-600 hover:underline">새로고침</button>
-    </div>
-    <div class="overflow-x-auto">
-      {# 좁은 화면에서는 칸을 접지 말고 가로로 스크롤시킨다.
-         "현재 등급"이 글자마다 줄바꿈되면 표를 읽을 수 없다. #}
-      <table class="w-full min-w-[640px] text-sm whitespace-nowrap">
-        <thead class="bg-gray-50 text-gray-500">
-          <tr>
-            <th class="text-left px-5 py-3 font-medium">ID</th>
-            <th class="text-left px-5 py-3 font-medium">아이디</th>
-            <th class="text-left px-5 py-3 font-medium">현재 등급</th>
-            <th class="text-left px-5 py-3 font-medium">게시글</th>
-            <th class="text-left px-5 py-3 font-medium">등급 변경</th>
-            <th class="text-right px-5 py-3 font-medium">삭제</th>
-          </tr>
-        </thead>
-        <tbody id="user-rows" class="divide-y divide-gray-100">
-          <tr><td colspan="6" class="px-5 py-10 text-center text-gray-400">불러오는 중...</td></tr>
-        </tbody>
-      </table>
-    </div>
+  <div class="grid gap-4 lg:grid-cols-2 mb-5">
+    <section class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <h2 class="font-bold text-gray-900">🔑 권한 부여</h2>
+      <p class="mt-1 mb-4 text-sm text-gray-500">
+        일반(0) → 골드(1) → 관리자(2). 부여자·시각·사유가 감사 기록으로 남습니다.
+      </p>
+      <div class="grid gap-2 sm:grid-cols-[1fr_150px]">
+        <input id="grant-username" type="text" placeholder="대상 아이디" list="username-options"
+               class="min-w-0 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100">
+        <datalist id="username-options"></datalist>
+        <select id="grant-role"
+                class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100">
+          <option value="1">🏅 골드 (1)</option>
+          <option value="2">🛠️ 관리자 (2)</option>
+          <option value="0">일반 (0)</option>
+        </select>
+        <input id="grant-reason" type="text" maxlength="200" placeholder="사유(선택)"
+               class="min-w-0 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100">
+        <button type="button" onclick="grantRole()"
+                class="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-600">
+          부여
+        </button>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-red-400 p-5">
+      <h2 class="font-bold text-gray-900">🚨 정책 위반 · 허용목록 밖 관리자</h2>
+      <p class="mt-1 mb-4 text-sm text-gray-500">비워 두면 서버의 ADMIN_ALLOWLIST 설정으로 조회합니다.</p>
+      <div class="flex gap-2">
+        <input id="allowlist" type="text" placeholder="허용목록: admin01,instructor"
+               class="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100">
+        <button type="button" onclick="loadViolations()"
+                class="shrink-0 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">
+          조회
+        </button>
+      </div>
+      {# 위반이 많아져도 옆 칸 높이를 넘지 않게 안에서만 스크롤한다. #}
+      <div id="violation-result" class="mt-3 max-h-40 overflow-y-auto text-sm text-gray-500">조회 중...</div>
+    </section>
   </div>
+
+  <section class="bg-white rounded-xl shadow-sm border border-gray-100">
+    <div class="p-4 border-b border-gray-100 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-bold text-gray-900">회원 목록 <span id="member-total" class="ml-1 text-sm font-normal text-gray-400"></span></h2>
+        <div class="inline-flex rounded-lg bg-gray-100 p-0.5 text-xs" role="group" aria-label="등급 필터">
+          <button data-role="" class="role-tab px-3 py-1.5 rounded-md">전체</button>
+          <button data-role="2" class="role-tab px-3 py-1.5 rounded-md">관리자</button>
+          <button data-role="1" class="role-tab px-3 py-1.5 rounded-md">골드</button>
+          <button data-role="0" class="role-tab px-3 py-1.5 rounded-md">일반</button>
+        </div>
+      </div>
+      <div class="grid gap-2 sm:grid-cols-[1fr_110px_auto]">
+        <input id="member-search" type="search" placeholder="아이디 · 부여자 · 사유 검색"
+               class="min-w-0 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <select id="member-page-size" aria-label="쪽당 인원" class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="10" selected>10명씩</option>
+          <option value="20">20명씩</option>
+          <option value="50">50명씩</option>
+        </select>
+        <button onclick="loadUsers()" class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">새로고침</button>
+      </div>
+    </div>
+
+    {# 넓은 화면: 고정 폭 표. 가로 스크롤 없이 한 화면에 들어간다. #}
+    <table class="hidden lg:table w-full table-fixed text-sm">
+      <thead class="bg-gray-50 text-gray-500 text-xs">
+        <tr>
+          <th class="w-48 text-left px-4 py-2.5 font-medium">회원</th>
+          <th class="w-28 text-left px-2 py-2.5 font-medium">등급</th>
+          <th class="w-16 text-right px-2 py-2.5 font-medium">게시글</th>
+          <th class="text-left px-4 py-2.5 font-medium">최근 권한 변경</th>
+          <th class="w-[20rem] text-right px-4 py-2.5 font-medium">관리</th>
+        </tr>
+      </thead>
+      <tbody id="user-rows" class="divide-y divide-gray-100">
+        <tr><td colspan="5" class="px-5 py-10 text-center text-gray-400">불러오는 중...</td></tr>
+      </tbody>
+    </table>
+    {# 좁은 화면: 카드 목록 #}
+    <ul id="user-cards" class="lg:hidden divide-y divide-gray-100"></ul>
+
+    <div id="member-pager" class="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-gray-100"></div>
+  </section>
 
   <p class="mt-4 text-xs text-gray-400 leading-relaxed">
     안전장치: 자기 자신은 삭제할 수 없고 스스로 등급을 내릴 수 없습니다.
@@ -78,7 +147,9 @@ const ROLE_BADGE = {
   2: 'bg-indigo-100 text-indigo-700',
 };
 
-// getCookie() 와 authHeaders() 는 _nav.html 이 모든 페이지에 제공한다.
+// getCookie() 와 authHeaders() 는 _nav.html, escapeHtml()·renderPager() 는 _pager.html 이 제공한다.
+
+const members = { all: [], roles: [], role: '', q: '', page: 1, pageSize: 10 };
 
 function flash(message, ok = true) {
   const box = document.getElementById('flash');
@@ -87,71 +158,254 @@ function flash(message, ok = true) {
     ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
     : 'bg-red-50 text-red-700 border border-red-100'}`;
   box.classList.remove('hidden');
-}
-
-function escapeHtml(str) {
-  return String(str).replace(/[&<>'"]/g,
-    tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+  clearTimeout(flash.timer);
+  flash.timer = setTimeout(() => box.classList.add('hidden'), 6000);
 }
 
 async function loadUsers() {
-  const tbody = document.getElementById('user-rows');
   const res = await fetch('/api/admin/users', { headers: authHeaders() });
-
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    tbody.innerHTML = `<tr><td colspan="6" class="px-5 py-10 text-center text-red-500">
-      ${res.status} · ${escapeHtml(data.msg || '회원 목록을 불러오지 못했습니다.')}</td></tr>`;
+    const message = `${res.status} · ${escapeHtml(data.msg || '회원 목록을 불러오지 못했습니다.')}`;
+    document.getElementById('user-rows').innerHTML = `<tr><td colspan="5" class="px-5 py-10 text-center text-red-500">${message}</td></tr>`;
+    document.getElementById('user-cards').innerHTML = `<li class="px-4 py-10 text-center text-red-500">${message}</li>`;
     return;
   }
 
   const data = await res.json();
-  const users = data.users;
-  document.getElementById('stat-total').textContent = users.length;
-  document.getElementById('stat-gold').textContent = users.filter(u => u.role === 1).length;
-  document.getElementById('stat-admin').textContent = users.filter(u => u.role === 2).length;
+  members.all = data.users;
+  members.roles = data.roles;
+  const count = role => data.users.filter(u => u.role === role).length;
+  document.getElementById('stat-total').textContent = data.users.length;
+  document.getElementById('stat-admin').textContent = count(2);
+  document.getElementById('stat-gold').textContent = count(1);
+  document.getElementById('stat-user').textContent = count(0);
+  document.getElementById('username-options').innerHTML =
+    data.users.map(u => `<option value="${escapeHtml(u.username)}">`).join('');
+  renderMembers();
+}
 
-  tbody.innerHTML = '';
-  users.forEach(user => {
-    const options = data.roles.map(role =>
-      `<option value="${role.value}" ${role.value === user.role ? 'selected' : ''}>${escapeHtml(role.name)} (${role.value})</option>`
-    ).join('');
-
-    const tr = document.createElement('tr');
-    tr.className = user.is_me ? 'bg-indigo-50/40' : '';
-    tr.innerHTML = `
-      <td class="px-5 py-3 text-gray-400">${user.id}</td>
-      <td class="px-5 py-3 font-medium text-gray-900">
-        ${escapeHtml(user.username)}
-        ${user.is_me ? '<span class="ml-1 text-xs text-indigo-500">(나)</span>' : ''}
-      </td>
-      <td class="px-5 py-3">
-        <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${ROLE_BADGE[user.role] || ''}">
-          ${escapeHtml(user.role_name)} (${user.role})
-        </span>
-      </td>
-      <td class="px-5 py-3 text-gray-500">${user.post_count}건</td>
-      <td class="px-5 py-3">
-        <div class="flex gap-2">
-          <select class="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500">${options}</select>
-          <button class="px-3 py-1.5 rounded-lg text-sm bg-indigo-600 text-white hover:bg-indigo-700">저장</button>
-        </div>
-      </td>
-      <td class="px-5 py-3 text-right"></td>`;
-
-    const select = tr.querySelector('select');
-    tr.querySelector('button').addEventListener('click', () => updateRole(user.id, select.value));
-
-    const delBtn = document.createElement('button');
-    delBtn.className = 'px-3 py-1.5 rounded-lg text-sm border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed';
-    delBtn.textContent = '삭제';
-    delBtn.disabled = user.is_me;
-    if (user.is_me) delBtn.title = '자기 자신은 삭제할 수 없습니다.';
-    delBtn.addEventListener('click', () => deleteUser(user.id, user.username, user.post_count));
-    tr.lastElementChild.appendChild(delBtn);
-
-    tbody.appendChild(tr);
+function filteredMembers() {
+  const q = members.q.toLowerCase();
+  return members.all.filter(user => {
+    if (members.role !== '' && user.role !== Number(members.role)) return false;
+    if (!q) return true;
+    return [user.username, user.role_granted_by, user.role_reason]
+      .some(value => String(value || '').toLowerCase().includes(q));
   });
+}
+
+function syncMemberControls() {
+  document.querySelectorAll('.role-tab').forEach(button => {
+    const on = button.dataset.role === members.role;
+    button.className = 'role-tab px-3 py-1.5 rounded-md ' + (on ? 'bg-white text-indigo-700 font-semibold shadow-sm' : 'text-gray-600 hover:text-gray-900');
+  });
+  document.querySelectorAll('.role-card').forEach(button => {
+    button.classList.toggle('ring-2', button.dataset.role === members.role);
+  });
+}
+
+function memberActions(user) {
+  // 등급 변경 · 회수 · 삭제를 한 줄에 묶는다. 요소는 이벤트를 붙이려고 직접 만든다.
+  const wrap = document.createElement('div');
+  wrap.className = 'flex items-center justify-end gap-1.5';
+
+  const select = document.createElement('select');
+  select.className = 'w-28 shrink-0 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500';
+  select.setAttribute('aria-label', `${user.username} 등급`);
+  select.innerHTML = members.roles.map(role =>
+    `<option value="${role.value}" ${role.value === user.role ? 'selected' : ''}>${escapeHtml(role.name)} (${role.value})</option>`
+  ).join('');
+
+  const save = document.createElement('button');
+  save.className = 'shrink-0 whitespace-nowrap px-2.5 py-1.5 rounded-lg text-sm bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed';
+  save.textContent = '저장';
+  save.disabled = true;
+  select.addEventListener('change', () => { save.disabled = Number(select.value) === user.role; });
+  save.addEventListener('click', () => updateRole(user.id, select.value));
+
+  // 일반(0)이 아닌 회원만 회수 대상이다. 자기 자신은 서버도 막는다.
+  const revoke = document.createElement('button');
+  revoke.className = 'shrink-0 whitespace-nowrap px-2.5 py-1.5 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700 disabled:bg-gray-100 disabled:text-gray-300 disabled:cursor-not-allowed';
+  revoke.textContent = '회수';
+  revoke.disabled = user.role === 0 || user.is_me;
+  revoke.title = user.is_me ? '자기 자신의 권한은 회수할 수 없습니다.' : user.role === 0 ? '이미 일반 등급입니다.' : `${user.role_name} → 일반`;
+  revoke.addEventListener('click', () => revokeRole(user.username, user.role_name));
+
+  const del = document.createElement('button');
+  del.className = 'shrink-0 whitespace-nowrap px-2.5 py-1.5 rounded-lg text-sm border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed';
+  del.textContent = '삭제';
+  del.disabled = user.is_me;
+  if (user.is_me) del.title = '자기 자신은 삭제할 수 없습니다.';
+  del.addEventListener('click', () => deleteUser(user.id, user.username, user.post_count));
+
+  wrap.append(select, save, revoke, del);
+  return wrap;
+}
+
+function memberName(user) {
+  return `<span class="font-medium text-gray-900">${escapeHtml(user.username)}</span>
+    ${user.is_me ? '<span class="ml-1 text-xs text-indigo-500">(나)</span>' : ''}
+    ${user.is_locked ? '<span class="ml-1 text-xs text-red-500" title="잠긴 계정">🔒</span>' : ''}
+    <span class="ml-1 text-xs text-gray-400">#${user.id}</span>`;
+}
+
+function roleBadge(user) {
+  return `<span class="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${ROLE_BADGE[user.role] || ''}">${escapeHtml(user.role_name)} (${user.role})</span>`;
+}
+
+function grantInfo(user) {
+  if (!user.role_granted_by && !user.role_granted_at) return '<span class="text-gray-300">기록 없음</span>';
+  return `<div class="truncate text-gray-600"><span class="font-medium">${escapeHtml(user.role_granted_by || '-')}</span>
+      <span class="text-gray-400 tabular-nums">· ${escapeHtml(formatDateTime(user.role_granted_at))}</span></div>
+    <div class="truncate text-xs text-gray-400" title="${escapeHtml(user.role_reason || '')}">${escapeHtml(user.role_reason || '-')}</div>`;
+}
+
+function renderMembers() {
+  syncMemberControls();
+  const list = filteredMembers();
+  const lastPage = Math.max(1, Math.ceil(list.length / members.pageSize));
+  members.page = Math.min(members.page, lastPage);
+  const pageItems = list.slice((members.page - 1) * members.pageSize, members.page * members.pageSize);
+  document.getElementById('member-total').textContent = `${list.length}명`;
+
+  const tbody = document.getElementById('user-rows');
+  const cards = document.getElementById('user-cards');
+  tbody.innerHTML = '';
+  cards.innerHTML = '';
+  if (!pageItems.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="px-5 py-10 text-center text-gray-400">조건에 맞는 회원이 없습니다.</td></tr>';
+    cards.innerHTML = '<li class="px-4 py-10 text-center text-gray-400">조건에 맞는 회원이 없습니다.</li>';
+  }
+
+  pageItems.forEach(user => {
+    const tr = document.createElement('tr');
+    tr.className = user.is_me ? 'bg-indigo-50/40' : 'hover:bg-gray-50';
+    tr.innerHTML = `
+      <td class="px-4 py-3 truncate">${memberName(user)}</td>
+      <td class="px-2 py-3">${roleBadge(user)}</td>
+      <td class="px-2 py-3 text-right text-gray-500 tabular-nums">${user.post_count}</td>
+      <td class="px-4 py-3">${grantInfo(user)}</td>
+      <td class="px-4 py-3"></td>`;
+    tr.lastElementChild.appendChild(memberActions(user));
+    tbody.appendChild(tr);
+
+    const li = document.createElement('li');
+    li.className = `px-4 py-3 space-y-2 ${user.is_me ? 'bg-indigo-50/40' : ''}`;
+    li.innerHTML = `
+      <div class="flex items-center justify-between gap-2">
+        <div class="min-w-0 truncate">${memberName(user)}</div>
+        ${roleBadge(user)}
+      </div>
+      <div class="text-sm">${grantInfo(user)}</div>
+      <p class="text-xs text-gray-400">게시글 ${user.post_count}건</p>`;
+    const actions = memberActions(user);
+    actions.classList.replace('justify-end', 'justify-start');
+    actions.classList.add('flex-wrap');
+    li.appendChild(actions);
+    cards.appendChild(li);
+  });
+
+  renderPager(document.getElementById('member-pager'), {
+    page: members.page, pageSize: members.pageSize, total: list.length,
+    onChange: page => { members.page = page; renderMembers(); },
+  });
+}
+
+function setMemberFilter(patch) {
+  Object.assign(members, patch, { page: 1 });
+  renderMembers();
+}
+
+async function grantRole() {
+  const usernameInput = document.getElementById('grant-username');
+  const reasonInput = document.getElementById('grant-reason');
+  const username = usernameInput.value.trim();
+  if (!username) {
+    flash('권한을 부여할 아이디를 입력하세요.', false);
+    usernameInput.focus();
+    return;
+  }
+
+  const res = await fetch('/api/admin/grant', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({
+      username,
+      role: Number(document.getElementById('grant-role').value),
+      reason: reasonInput.value.trim(),
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  flash(data.msg || (res.ok ? '권한을 부여했습니다.' : '권한 부여에 실패했습니다.'), res.ok);
+  if (res.ok) {
+    usernameInput.value = '';
+    reasonInput.value = '';
+    await Promise.all([loadUsers(), loadViolations()]);
+  }
+}
+
+async function loadViolations() {
+  const result = document.getElementById('violation-result');
+  const allowlist = document.getElementById('allowlist').value.trim();
+  const query = allowlist ? `?allowlist=${encodeURIComponent(allowlist)}` : '';
+  result.textContent = '조회 중...';
+
+  const res = await fetch(`/api/admin/violations${query}`, { headers: authHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    result.className = 'mt-3 max-h-40 overflow-y-auto text-sm text-red-600';
+    result.textContent = data.msg || '정책 위반 목록을 불러오지 못했습니다.';
+    return;
+  }
+
+  if (!allowlist && data.allowlist && data.allowlist.length) {
+    document.getElementById('allowlist').placeholder = `현재 설정: ${data.allowlist.join(',')}`;
+  }
+  result.className = 'mt-3 max-h-40 overflow-y-auto text-sm text-gray-600';
+  result.replaceChildren();
+  if (!data.violations.length) {
+    result.textContent = '✅ 허용목록 밖 관리자 계정이 없습니다.';
+    return;
+  }
+
+  const summary = document.createElement('p');
+  summary.className = 'mb-1 font-medium text-red-600';
+  summary.textContent = `과잉권한 관리자 ${data.violations.length}명을 찾았습니다.`;
+  result.appendChild(summary);
+
+  data.violations.forEach(user => {
+    const row = document.createElement('div');
+    row.className = 'mt-1.5 flex items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2';
+    const detail = document.createElement('span');
+    detail.className = 'min-w-0 truncate';
+    detail.textContent = `${user.username} · 부여자 ${user.role_granted_by || '-'} · ${formatDateTime(user.role_granted_at)}`;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'shrink-0 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40';
+    button.textContent = '일반으로 회수';
+    button.disabled = !!window.CURRENT_USER && user.username === window.CURRENT_USER.username;
+    button.title = button.disabled ? '자기 자신의 권한은 회수할 수 없습니다.' : '';
+    button.addEventListener('click', () => revokeRole(user.username));
+    row.append(detail, button);
+    result.appendChild(row);
+  });
+}
+
+async function revokeRole(username, roleName = '관리자') {
+  if (!confirm(`${username}님의 ${roleName} 권한을 일반(0)으로 회수할까요?`)) return;
+  const res = await fetch('/api/admin/revoke', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({
+      username,
+      reason: `관리자 화면에서 ${roleName} 권한 회수: ${username}`,
+      source: 'admin-console',
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  flash(data.msg || (res.ok ? '권한을 회수했습니다.' : '권한 회수에 실패했습니다.'), res.ok);
+  if (res.ok) await Promise.all([loadUsers(), loadViolations()]);
 }
 
 async function updateRole(userId, role) {
@@ -162,7 +416,7 @@ async function updateRole(userId, role) {
   });
   const data = await res.json().catch(() => ({}));
   flash(data.msg || (res.ok ? '변경했습니다.' : '변경에 실패했습니다.'), res.ok);
-  if (res.ok) loadUsers();
+  if (res.ok) await Promise.all([loadUsers(), loadViolations()]);
 }
 
 async function deleteUser(userId, username, postCount) {
@@ -173,10 +427,21 @@ async function deleteUser(userId, username, postCount) {
   });
   const data = await res.json().catch(() => ({}));
   flash(data.msg || (res.ok ? '삭제했습니다.' : '삭제에 실패했습니다.'), res.ok);
-  if (res.ok) loadUsers();
+  if (res.ok) await Promise.all([loadUsers(), loadViolations()]);
 }
 
-document.addEventListener('DOMContentLoaded', loadUsers);
+document.querySelectorAll('.role-tab, .role-card').forEach(button => {
+  button.addEventListener('click', () => setMemberFilter({ role: button.dataset.role }));
+});
+document.getElementById('member-search').addEventListener('input',
+  debounce(event => setMemberFilter({ q: event.target.value.trim() })));
+document.getElementById('member-page-size').addEventListener('change',
+  event => setMemberFilter({ pageSize: Number(event.target.value) }));
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadUsers();
+  loadViolations();
+});
 </script>
 </body>
 </html>

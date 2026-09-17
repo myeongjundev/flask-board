@@ -8,73 +8,149 @@
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
   {% include 'partials/_nav.html' %}
+  {% include 'partials/_pager.html' %}
 
   <main class="max-w-6xl mx-auto px-4 py-6 flex-1 w-full">
-    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
       <div>
         <h1 class="text-2xl font-bold">🛡️ 보안 대시보드</h1>
-        <p class="text-sm text-gray-500 mt-1">n8n이 판정해 보낸 허용·거부 기록</p>
+        <p class="text-sm text-gray-500 mt-1">n8n이 판정해 보낸 허용·거부 기록과 자동 조치 이력</p>
       </div>
-      <div class="flex gap-2 items-center">
-        <label for="student-filter" class="sr-only">학생 선택</label>
-        <select id="student-filter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          <option value="">전체 학생</option>
-        </select>
+      <div class="flex items-center gap-3">
+        <label class="flex items-center gap-2 text-sm text-gray-600 select-none">
+          <input id="auto-refresh" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+          30초 자동 갱신
+        </label>
+        <span id="updated-at" class="hidden sm:inline text-xs text-gray-400"></span>
         <button id="refresh-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">새로고침</button>
       </div>
     </div>
 
-    <div id="load-error" role="alert" class="hidden bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-6"></div>
+    <div id="load-error" role="alert" class="hidden bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-5"></div>
 
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">전체</div><div id="stat-total" class="text-2xl font-bold mt-1">-</div></div>
-      <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 border-red-500"><div class="text-xs text-gray-500">거부</div><div id="stat-deny" class="text-2xl font-bold mt-1 text-red-600">-</div></div>
-      <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 border-emerald-500"><div class="text-xs text-gray-500">허용</div><div id="stat-allow" class="text-2xl font-bold mt-1 text-emerald-600">-</div></div>
-      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">최다 거부 IP</div><div id="stat-top-ip" class="text-lg font-bold mt-1 truncate">-</div></div>
+    {# 카드를 누르면 아래 목록이 그 조건으로 걸러진다. #}
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <button type="button" data-card="all" class="stat-card text-left bg-white rounded-xl shadow-sm p-4 ring-indigo-500 hover:shadow">
+        <div class="text-xs text-gray-500">전체 이벤트</div>
+        <div id="stat-total" class="text-2xl font-bold mt-1">-</div>
+      </button>
+      <button type="button" data-card="deny" class="stat-card text-left bg-white rounded-xl shadow-sm p-4 border-l-4 border-red-500 ring-indigo-500 hover:shadow">
+        <div class="text-xs text-gray-500">거부</div>
+        <div id="stat-deny" class="text-2xl font-bold mt-1 text-red-600">-</div>
+      </button>
+      <button type="button" data-card="allow" class="stat-card text-left bg-white rounded-xl shadow-sm p-4 border-l-4 border-emerald-500 ring-indigo-500 hover:shadow">
+        <div class="text-xs text-gray-500">허용</div>
+        <div id="stat-allow" class="text-2xl font-bold mt-1 text-emerald-600">-</div>
+      </button>
+      <button type="button" data-card="privilege-guard" class="stat-card text-left bg-white rounded-xl shadow-sm p-4 border-l-4 border-indigo-500 ring-indigo-500 hover:shadow">
+        <div class="text-xs text-gray-500">권한 자동 회수</div>
+        <div id="stat-revoke" class="text-2xl font-bold mt-1 text-indigo-600">-</div>
+      </button>
     </div>
 
-    <section class="bg-white rounded-xl shadow-sm p-4 mb-6">
-      <h2 class="font-semibold mb-3">거부 상위 IP</h2>
-      <div id="top-ips" class="space-y-2 text-sm text-gray-500">불러오는 중…</div>
-    </section>
+    <div class="grid gap-4 lg:grid-cols-2 mb-5">
+      <section class="bg-white rounded-xl shadow-sm p-4">
+        <div class="flex items-baseline justify-between mb-3">
+          <h2 class="font-semibold">거부 상위 IP</h2>
+          <span class="text-xs text-gray-400">거부 건수 순 · 괄호는 로그인 실패 합계</span>
+        </div>
+        <div id="top-ips" class="space-y-2.5 text-sm text-gray-500">불러오는 중…</div>
+      </section>
+      <section class="bg-white rounded-xl shadow-sm p-4">
+        <div class="flex items-baseline justify-between mb-3">
+          <h2 class="font-semibold">출처별 이벤트</h2>
+          <span class="text-xs text-gray-400">누르면 목록이 걸러집니다</span>
+        </div>
+        <div id="sources" class="space-y-2.5 text-sm text-gray-500">불러오는 중…</div>
+      </section>
+    </div>
 
-    <section class="bg-white rounded-xl shadow-sm overflow-hidden">
-      <div class="p-4 flex items-center justify-between gap-3">
-        <h2 class="font-semibold">최근 이벤트</h2>
-        <div class="flex gap-1 text-xs" aria-label="판정 필터">
-          <button data-decision="" class="filter-btn px-2 py-1 rounded bg-indigo-600 text-white">전체</button>
-          <button data-decision="deny" class="filter-btn px-2 py-1 rounded bg-gray-100 hover:bg-gray-200">거부</button>
-          <button data-decision="allow" class="filter-btn px-2 py-1 rounded bg-gray-100 hover:bg-gray-200">허용</button>
+    <section class="bg-white rounded-xl shadow-sm">
+      <div class="p-4 border-b border-gray-100 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="font-semibold">이벤트 목록 <span id="event-total" class="ml-1 text-sm font-normal text-gray-400"></span></h2>
+          <div class="inline-flex rounded-lg bg-gray-100 p-0.5 text-xs" role="group" aria-label="판정 필터">
+            <button data-decision="" class="filter-btn px-3 py-1.5 rounded-md">전체</button>
+            <button data-decision="deny" class="filter-btn px-3 py-1.5 rounded-md">거부</button>
+            <button data-decision="allow" class="filter-btn px-3 py-1.5 rounded-md">허용</button>
+          </div>
+        </div>
+        <div class="grid gap-2 sm:grid-cols-[1fr_160px_160px_110px]">
+          <input id="search" type="search" placeholder="사유 · 대상 계정 · IP 검색"
+                 class="min-w-0 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <select id="student-filter" aria-label="학생" class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">전체 학생</option>
+          </select>
+          <select id="source-filter" aria-label="출처" class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">전체 출처</option>
+          </select>
+          <select id="page-size" aria-label="쪽당 건수" class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="10">10건씩</option>
+            <option value="20" selected>20건씩</option>
+            <option value="50">50건씩</option>
+          </select>
         </div>
       </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm whitespace-nowrap">
-          <thead class="bg-gray-50 text-gray-600"><tr>
-            <th class="text-left px-4 py-2 font-medium">#</th><th class="text-left px-4 py-2 font-medium">학생</th>
-            <th class="text-left px-4 py-2 font-medium">출발지 IP</th><th class="text-left px-4 py-2 font-medium">판정</th>
-            <th class="text-left px-4 py-2 font-medium">심각도</th><th class="text-left px-4 py-2 font-medium">횟수</th>
-            <th class="text-left px-4 py-2 font-medium">사유</th><th class="text-left px-4 py-2 font-medium">저장 시각</th>
-          </tr></thead>
-          <tbody id="event-rows" class="divide-y divide-gray-100">
-            <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">불러오는 중…</td></tr>
-          </tbody>
-        </table>
-      </div>
+
+      {# 넓은 화면: 고정 폭 표. 사유만 남는 폭을 차지하고 말줄임한다. #}
+      <table class="hidden md:table w-full table-fixed text-sm">
+        <thead class="bg-gray-50 text-gray-500 text-xs">
+          <tr>
+            <th class="w-44 text-left px-4 py-2.5 font-medium">시각</th>
+            <th class="w-20 text-left px-2 py-2.5 font-medium">판정</th>
+            <th class="w-20 text-left px-2 py-2.5 font-medium">심각도</th>
+            <th class="w-28 text-left px-2 py-2.5 font-medium">출처</th>
+            <th class="w-44 text-left px-2 py-2.5 font-medium">대상 · 출발지</th>
+            <th class="text-left px-2 py-2.5 font-medium">사유</th>
+            <th class="w-8 px-2"></th>
+          </tr>
+        </thead>
+        <tbody id="event-rows" class="divide-y divide-gray-100">
+          <tr><td colspan="7" class="px-4 py-10 text-center text-gray-400">불러오는 중…</td></tr>
+        </tbody>
+      </table>
+      {# 좁은 화면: 카드 목록 #}
+      <ul id="event-cards" class="md:hidden divide-y divide-gray-100"></ul>
+
+      <div id="pager" class="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-gray-100"></div>
     </section>
   </main>
 
   <script>
-    let currentDecision = '';
-    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g,
-      char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-    const badge = (decision) => decision === 'deny'
-      ? '<span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">🚫 거부</span>'
-      : '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">✅ 허용</span>';
-    const severityClass = (value) => ({High:'text-red-600', Medium:'text-amber-600'}[value] || 'text-gray-500');
+    const SOURCE_LABEL = {
+      'privilege-guard': '권한 회수',
+      'privilege-guard-bot': '봇 직접 회수',
+      'admin-console': '관리자 화면',
+      'login_alert_lab': '로그인 경보',
+      'login_guard': '로그인 경보',
+      'login-guard': '계정 잠금',
+      'ip-guard': 'IP 차단',
+    };
+    const SOURCE_COLOR = {
+      'privilege-guard': 'bg-indigo-500',
+      'admin-console': 'bg-slate-500',
+      'login-guard': 'bg-amber-500',
+      'ip-guard': 'bg-red-500',
+    };
+    const sourceLabel = value => SOURCE_LABEL[value] || value || 'unknown';
 
-    function studentQuery() {
-      const value = document.getElementById('student-filter').value;
-      return value ? `student=${encodeURIComponent(value)}` : '';
+    const state = { page: 1, pageSize: 20, decision: '', source: '', student: '', q: '' };
+    const openRows = new Set();
+
+    const badge = decision => decision === 'deny'
+      ? '<span class="inline-flex px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">거부</span>'
+      : '<span class="inline-flex px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">허용</span>';
+    const severityClass = value => ({ Critical: 'text-red-700 font-semibold', High: 'text-red-600', Medium: 'text-amber-600' }[value] || 'text-gray-500');
+    const sourceChip = value => `<span class="inline-block max-w-full truncate px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 text-xs" title="${escapeHtml(value)}">${escapeHtml(sourceLabel(value))}</span>`;
+
+    function buildQuery(extra = {}) {
+      const params = new URLSearchParams();
+      const merged = { ...state, ...extra };
+      if (merged.student) params.set('student', merged.student);
+      if (merged.decision) params.set('decision', merged.decision);
+      if (merged.source) params.set('source', merged.source);
+      if (merged.q) params.set('q', merged.q);
+      return params;
     }
     async function readJson(url) {
       const response = await fetch(url);
@@ -91,61 +167,193 @@
     async function loadStudents() {
       const data = await readJson('/api/security/students');
       const select = document.getElementById('student-filter');
-      const selected = select.value;
       select.innerHTML = '<option value="">전체 학생</option>' +
         (data.students || []).map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
-      select.value = selected;
+      select.value = state.student;
     }
+
+    function barRow(label, value, maximum, color, note = '', attrs = '') {
+      const width = maximum ? Math.max(4, value / maximum * 100) : 0;
+      return `<div class="flex items-center gap-3 ${attrs ? 'cursor-pointer rounded-md -mx-1 px-1 hover:bg-gray-50' : ''}" ${attrs}>
+        <span class="w-32 shrink-0 truncate text-gray-800" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+        <div class="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden"><div class="${color} h-2 rounded-full" style="width:${width}%"></div></div>
+        <span class="w-24 shrink-0 text-right text-gray-600">${value}건${note}</span></div>`;
+    }
+
     async function loadSummary() {
-      const query = studentQuery();
-      const data = await readJson('/api/security/events/summary' + (query ? '?' + query : ''));
+      const params = buildQuery({ decision: '', source: '', q: '' });
+      const data = await readJson('/api/security/events/summary?' + params);
       const deny = data.by_decision?.deny || 0;
       const allow = data.by_decision?.allow || 0;
+      const sources = data.by_source || {};
       document.getElementById('stat-deny').textContent = deny;
       document.getElementById('stat-allow').textContent = allow;
       document.getElementById('stat-total').textContent = deny + allow;
+      document.getElementById('stat-revoke').textContent = sources['privilege-guard'] || 0;
+
       const top = data.top_deny_ips || [];
-      document.getElementById('stat-top-ip').textContent = top.length ? top[0].src_ip : '-';
-      const maximum = top.length ? Math.max(top[0].fails, 1) : 1;
+      const topMax = Math.max(1, ...top.map(item => item.events ?? item.fails));
       document.getElementById('top-ips').innerHTML = top.length
-        ? top.map(item => `<div class="flex items-center gap-3">
-            <span class="font-mono text-gray-800 w-36 shrink-0">${escapeHtml(item.src_ip)}</span>
-            <div class="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden"><div class="bg-red-500 h-2" style="width:${Math.min(100, item.fails / maximum * 100)}%"></div></div>
-            <span class="text-gray-600 w-16 text-right">${item.fails}회</span></div>`).join('')
+        ? top.map(item => barRow(item.src_ip, item.events ?? item.fails, topMax, 'bg-red-500',
+            item.fails ? ` <span class="text-gray-400">(${item.fails})</span>` : '',
+            `data-ip="${escapeHtml(item.src_ip)}"`)).join('')
         : '<div class="text-gray-400">거부 기록이 없습니다.</div>';
+
+      const entries = Object.entries(sources).sort((a, b) => b[1] - a[1]);
+      const sourceMax = Math.max(1, ...entries.map(([, total]) => total));
+      document.getElementById('sources').innerHTML = entries.length
+        ? entries.map(([name, total]) => barRow(sourceLabel(name), total, sourceMax,
+            SOURCE_COLOR[name] || 'bg-sky-500', '', `data-source="${escapeHtml(name)}"`)).join('')
+        : '<div class="text-gray-400">기록이 없습니다.</div>';
+
+      const select = document.getElementById('source-filter');
+      select.innerHTML = '<option value="">전체 출처</option>' + entries.map(([name]) =>
+        `<option value="${escapeHtml(name)}">${escapeHtml(sourceLabel(name))} (${escapeHtml(name)})</option>`).join('');
+      select.value = state.source;
+
+      document.querySelectorAll('#top-ips [data-ip]').forEach(row => row.addEventListener('click', () => {
+        setFilter({ q: row.dataset.ip, decision: 'deny', source: '' });
+      }));
+      document.querySelectorAll('#sources [data-source]').forEach(row => row.addEventListener('click', () => {
+        setFilter({ source: row.dataset.source });
+      }));
     }
-    async function loadEvents() {
-      const query = [studentQuery(), currentDecision ? `decision=${currentDecision}` : '', 'limit=50'].filter(Boolean).join('&');
-      const data = await readJson('/api/security/events?' + query);
+
+    function detailGrid(event) {
+      const items = [
+        ['ID', event.id], ['학생', event.student], ['대상 계정', event.users || '-'],
+        ['출발지 IP', event.src_ip], ['출처', `${sourceLabel(event.source)} (${event.source || '-'})`],
+        ['실패 횟수', event.fail_count], ['마지막 시도', event.last_seen || '-'],
+        ['집계 창(분)', event.window_min ?? '-'], ['생성 시각(n8n)', event.generated_at || '-'],
+      ];
+      return `<dl class="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-xs">
+          ${items.map(([key, value]) => `<div class="min-w-0"><dt class="text-gray-400">${key}</dt><dd class="text-gray-700 break-all">${escapeHtml(value)}</dd></div>`).join('')}
+        </dl>
+        <p class="mt-3 text-xs text-gray-400">사유</p>
+        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words">${escapeHtml(event.reason || '-')}</p>`;
+    }
+
+    function renderEvents(events) {
       const rows = document.getElementById('event-rows');
-      if (!data.events?.length) {
-        rows.innerHTML = '<tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">기록이 없습니다.</td></tr>';
+      const cards = document.getElementById('event-cards');
+      if (!events.length) {
+        rows.innerHTML = '<tr><td colspan="7" class="px-4 py-10 text-center text-gray-400">조건에 맞는 기록이 없습니다.</td></tr>';
+        cards.innerHTML = '<li class="px-4 py-10 text-center text-gray-400">조건에 맞는 기록이 없습니다.</li>';
         return;
       }
-      rows.innerHTML = data.events.map(event => `<tr class="hover:bg-gray-50">
-        <td class="px-4 py-2 text-gray-400">${event.id}</td><td class="px-4 py-2 font-medium">${escapeHtml(event.student)}</td>
-        <td class="px-4 py-2 font-mono">${escapeHtml(event.src_ip)}</td><td class="px-4 py-2">${badge(event.decision)}</td>
-        <td class="px-4 py-2 font-medium ${severityClass(event.severity)}">${escapeHtml(event.severity)}</td><td class="px-4 py-2">${event.fail_count}</td>
-        <td class="px-4 py-2 text-gray-600 max-w-xs truncate" title="${escapeHtml(event.reason)}">${escapeHtml(event.reason)}</td>
-        <td class="px-4 py-2 text-gray-400">${escapeHtml((event.created_at || '').replace('T',' ').slice(0,19))}</td></tr>`).join('');
+
+      rows.innerHTML = events.map(event => {
+        const open = openRows.has(event.id);
+        return `<tr data-id="${event.id}" class="event-row cursor-pointer hover:bg-gray-50 ${open ? 'bg-indigo-50/40' : ''}">
+          <td class="px-4 py-2.5 text-gray-500 tabular-nums whitespace-nowrap">${escapeHtml(formatDateTime(event.created_at))}</td>
+          <td class="px-2 py-2.5">${badge(event.decision)}</td>
+          <td class="px-2 py-2.5 ${severityClass(event.severity)}">${escapeHtml(event.severity)}</td>
+          <td class="px-2 py-2.5">${sourceChip(event.source)}</td>
+          <td class="px-2 py-2.5">
+            <div class="truncate font-medium text-gray-800" title="${escapeHtml(event.users || '')}">${escapeHtml(event.users || '—')}</div>
+            <div class="truncate font-mono text-xs text-gray-400">${escapeHtml(event.src_ip)}</div>
+          </td>
+          <td class="px-2 py-2.5 text-gray-600 truncate" title="${escapeHtml(event.reason || '')}">${escapeHtml(event.reason || '-')}</td>
+          <td class="px-2 py-2.5 text-gray-400 text-center">${open ? '▴' : '▾'}</td>
+        </tr>${open ? `<tr class="bg-indigo-50/40"><td colspan="7" class="px-4 pb-4 pt-1">${detailGrid(event)}</td></tr>` : ''}`;
+      }).join('');
+
+      cards.innerHTML = events.map(event => {
+        const open = openRows.has(event.id);
+        return `<li data-id="${event.id}" class="event-row px-4 py-3 cursor-pointer ${open ? 'bg-indigo-50/40' : ''}">
+          <div class="flex items-center gap-2 flex-wrap">
+            ${badge(event.decision)}
+            <span class="text-xs ${severityClass(event.severity)}">${escapeHtml(event.severity)}</span>
+            ${sourceChip(event.source)}
+            <span class="ml-auto text-xs text-gray-400 tabular-nums">${escapeHtml(formatDateTime(event.created_at))}</span>
+          </div>
+          <p class="mt-1.5 text-sm font-medium text-gray-800 truncate">${escapeHtml(event.users || '—')} <span class="font-mono text-xs font-normal text-gray-400">${escapeHtml(event.src_ip)}</span></p>
+          <p class="text-sm text-gray-600 ${open ? '' : 'truncate'}">${escapeHtml(event.reason || '-')}</p>
+          ${open ? `<div class="mt-3">${detailGrid(event)}</div>` : ''}
+        </li>`;
+      }).join('');
+
+      document.querySelectorAll('.event-row').forEach(row => row.addEventListener('click', () => {
+        const id = Number(row.dataset.id);
+        openRows.has(id) ? openRows.delete(id) : openRows.add(id);
+        renderEvents(events);
+      }));
     }
-    async function reload({students = false} = {}) {
+
+    async function loadEvents() {
+      const params = buildQuery();
+      params.set('limit', state.pageSize);
+      params.set('offset', (state.page - 1) * state.pageSize);
+      const data = await readJson('/api/security/events?' + params);
+      const total = data.total ?? data.count;
+      // 필터를 좁혀 현재 쪽이 범위를 벗어나면 마지막 쪽으로 돌아간다.
+      const lastPage = Math.max(1, Math.ceil(total / state.pageSize));
+      if (state.page > lastPage) { state.page = lastPage; return loadEvents(); }
+
+      document.getElementById('event-total').textContent = `${total}건`;
+      renderEvents(data.events || []);
+      renderPager(document.getElementById('pager'), {
+        page: state.page, pageSize: state.pageSize, total,
+        onChange: page => { state.page = page; reload({ summary: false }); },
+      });
+    }
+
+    function syncControls() {
+      document.querySelectorAll('.filter-btn').forEach(button => {
+        const on = button.dataset.decision === state.decision;
+        button.className = 'filter-btn px-3 py-1.5 rounded-md ' + (on ? 'bg-white text-indigo-700 font-semibold shadow-sm' : 'text-gray-600 hover:text-gray-900');
+      });
+      const card = state.source === 'privilege-guard' ? 'privilege-guard'
+        : state.source ? '' : (state.decision || 'all');
+      document.querySelectorAll('.stat-card').forEach(button => {
+        button.classList.toggle('ring-2', button.dataset.card === card && !state.q);
+      });
+      document.getElementById('source-filter').value = state.source;
+    }
+
+    function setFilter(patch) {
+      Object.assign(state, patch, { page: 1 });
+      // 검색창은 IP 막대처럼 다른 곳에서 검색어를 바꿀 때만 맞춘다.
+      // 다시 불러오는 사이 입력 중인 글자를 덮어쓰지 않기 위해서다.
+      const search = document.getElementById('search');
+      if ('q' in patch && search.value.trim() !== state.q) search.value = state.q;
+      openRows.clear();
+      syncControls();
+      reload({ summary: 'student' in patch });
+    }
+
+    async function reload({ students = false, summary = true } = {}) {
       clearError();
       try {
         if (students) await loadStudents();
-        await Promise.all([loadSummary(), loadEvents()]);
+        await Promise.all([summary ? loadSummary() : null, loadEvents()]);
+        syncControls();
+        document.getElementById('updated-at').textContent = '갱신 ' + formatDateTime(new Date()).slice(11);
       } catch (error) { showError(error); }
     }
-    document.getElementById('refresh-btn').addEventListener('click', () => reload({students:true}));
-    document.getElementById('student-filter').addEventListener('change', () => reload());
+
+    document.getElementById('refresh-btn').addEventListener('click', () => reload({ students: true }));
+    document.getElementById('student-filter').addEventListener('change', event => setFilter({ student: event.target.value }));
+    document.getElementById('source-filter').addEventListener('change', event => setFilter({ source: event.target.value }));
+    document.getElementById('search').addEventListener('input', debounce(event => setFilter({ q: event.target.value.trim() })));
+    document.getElementById('page-size').addEventListener('change', event => setFilter({ pageSize: Number(event.target.value) }));
     document.querySelectorAll('.filter-btn').forEach(button => button.addEventListener('click', () => {
-      currentDecision = button.dataset.decision;
-      document.querySelectorAll('.filter-btn').forEach(item => {
-        item.className = 'filter-btn px-2 py-1 rounded ' + (item === button ? 'bg-indigo-600 text-white' : 'bg-gray-100 hover:bg-gray-200');
-      });
-      reload();
+      setFilter({ decision: button.dataset.decision });
     }));
-    reload({students:true});
+    document.querySelectorAll('.stat-card').forEach(button => button.addEventListener('click', () => {
+      const card = button.dataset.card;
+      if (card === 'privilege-guard') setFilter({ source: card, decision: '', q: '' });
+      else setFilter({ decision: card === 'all' ? '' : card, source: '', q: '' });
+    }));
+
+    let timer = null;
+    document.getElementById('auto-refresh').addEventListener('change', event => {
+      clearInterval(timer);
+      if (event.target.checked) timer = setInterval(() => reload(), 30000);
+    });
+
+    syncControls();
+    reload({ students: true });
   </script>
 </body>
 </html>

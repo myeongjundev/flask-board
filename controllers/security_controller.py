@@ -100,37 +100,73 @@ def create_security_event():
 def list_security_events():
     student = request.args.get("student", type=str)
     decision = request.args.get("decision", type=str)
+    source = request.args.get("source", type=str)
+    keyword = (request.args.get("q", type=str) or "").strip()
     requested_limit = request.args.get("limit", default=20, type=int)
     limit = min(max(requested_limit if requested_limit is not None else 20, 1), 100)
+    offset = max(request.args.get("offset", default=0, type=int) or 0, 0)
     query = SecurityEvent.query
     if student:
         query = query.filter_by(student=student)
     if decision in ("allow", "deny"):
         query = query.filter_by(decision=decision)
-    rows = query.order_by(SecurityEvent.id.desc()).limit(limit).all()
-    return jsonify({"count": len(rows), "events": [row.to_dict() for row in rows]})
+    if source:
+        query = query.filter_by(source=source)
+    if keyword:
+        # 대시보드 검색창 하나로 사유·대상 계정·출발지 IP를 함께 찾는다.
+        pattern = f"%{keyword[:100]}%"
+        query = query.filter(
+            db.or_(
+                SecurityEvent.reason.like(pattern),
+                SecurityEvent.users.like(pattern),
+                SecurityEvent.src_ip.like(pattern),
+            )
+        )
+    total = query.count()
+    rows = query.order_by(SecurityEvent.id.desc()).offset(offset).limit(limit).all()
+    return jsonify({
+        "count": len(rows),
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "events": [row.to_dict() for row in rows],
+    })
 
 
 @security_bp.get("/events/summary")
 def security_events_summary():
     student = request.args.get("student", type=str)
     counts = db.session.query(SecurityEvent.decision, func.count(SecurityEvent.id))
-    top_ips = db.session.query(SecurityEvent.src_ip, func.sum(SecurityEvent.fail_count)).filter(
+    sources = db.session.query(SecurityEvent.source, func.count(SecurityEvent.id))
+    event_count = func.count(SecurityEvent.id)
+    fail_sum = func.coalesce(func.sum(SecurityEvent.fail_count), 0)
+    top_ips = db.session.query(SecurityEvent.src_ip, event_count, fail_sum).filter(
         SecurityEvent.decision == "deny"
     )
     if student:
         counts = counts.filter(SecurityEvent.student == student)
+        sources = sources.filter(SecurityEvent.student == student)
         top_ips = top_ips.filter(SecurityEvent.student == student)
     by_decision = dict(counts.group_by(SecurityEvent.decision).all())
+    by_source = {
+        (name or "unknown"): total
+        for name, total in sources.group_by(SecurityEvent.source).all()
+    }
+    # 권한 회수 이벤트는 실패 횟수가 0이라, 실패 합계만으로 줄 세우면 순위가 무의미하다.
+    # 거부 건수를 먼저 보고 실패 합계로 동률을 가른다.
     top = (
         top_ips.group_by(SecurityEvent.src_ip)
-        .order_by(func.sum(SecurityEvent.fail_count).desc())
+        .order_by(event_count.desc(), fail_sum.desc())
         .limit(5).all()
     )
     return jsonify({
         "student": student,
         "by_decision": by_decision,
-        "top_deny_ips": [{"src_ip": ip, "fails": int(total)} for ip, total in top],
+        "by_source": by_source,
+        "top_deny_ips": [
+            {"src_ip": ip, "events": int(events), "fails": int(fails)}
+            for ip, events, fails in top
+        ],
     })
 
 
