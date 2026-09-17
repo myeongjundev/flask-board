@@ -1,4 +1,6 @@
 """사용자 모델과 등급(권한) 정의."""
+from datetime import datetime
+
 from extensions import db
 
 
@@ -29,6 +31,18 @@ class User(db.Model):
     role = db.Column(
         db.Integer, nullable=False, default=ROLE_USER, server_default="0"
     )
+    role_granted_by = db.Column(db.String(80))
+    role_granted_at = db.Column(db.DateTime)
+    role_reason = db.Column(db.String(200))
+    # Graylog/n8n 자동 대응에서 쓰는 계정 잠금 상태다.
+    is_locked = db.Column(
+        db.Boolean, nullable=False, default=False, server_default="0"
+    )
+    locked_at = db.Column(db.DateTime)
+    lock_reason = db.Column(db.String(200))
+    failed_logins = db.Column(
+        db.Integer, nullable=False, default=0, server_default="0"
+    )
 
     @property
     def role_name(self):
@@ -52,4 +66,13 @@ class User(db.Model):
             "username": self.username,
             "role": self.role,
             "role_name": self.role_name,
+            "role_granted_by": self.role_granted_by,
+            "role_granted_at": (
+                self.role_granted_at.isoformat() if self.role_granted_at else None
+            ),
+            "role_reason": self.role_reason,
+            "is_locked": self.is_locked,
+            "locked_at": self.locked_at.isoformat() if self.locked_at else None,
+            "lock_reason": self.lock_reason,
+            "failed_logins": self.failed_logins,
         }

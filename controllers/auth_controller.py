@@ -7,6 +7,7 @@ from flask_jwt_extended import (
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from controllers.authz import current_user
+from controllers.gelf import send_gelf
 from extensions import db
 from models import ROLE_USER, User
 
@@ -39,8 +40,47 @@ def login():
     username = str(data.get("username") or "").strip()
     password = str(data.get("password") or "")
     user = User.query.filter_by(username=username).first()
+    forwarded_for = request.headers.get("X-Forwarded-For", "")
+    src_ip = (
+        forwarded_for.split(",", 1)[0].strip()
+        if forwarded_for
+        else (request.remote_addr or "0.0.0.0")
+    )
+
+    if user and user.is_locked:
+        send_gelf(
+            f"login attempt on LOCKED account '{username}'",
+            rule="login-bruteforce",
+            username=username,
+            src_ip=src_ip,
+            locked="1",
+        )
+        return (
+            jsonify(
+                {
+                    "msg": "계정이 잠겨 있습니다. 관리자에게 문의하세요.",
+                    "locked": True,
+                }
+            ),
+            423,
+        )
+
     if not user or not check_password_hash(user.password, password):
+        if user:
+            user.failed_logins = (user.failed_logins or 0) + 1
+            db.session.commit()
+        send_gelf(
+            f"failed login for '{username}' from {src_ip}",
+            rule="login-bruteforce",
+            username=username or "(unknown)",
+            src_ip=src_ip,
+            count=1,
+        )
         return jsonify({"msg": "아이디 또는 비밀번호가 잘못되었습니다."}), 401
+
+    if user.failed_logins:
+        user.failed_logins = 0
+        db.session.commit()
     token = create_access_token(identity=str(user.id))
     response = jsonify(
         access_token=token,

@@ -28,7 +28,20 @@ class Config:
     JWT_COOKIE_SECURE = os.environ.get("JWT_COOKIE_SECURE", "0") == "1"
     JWT_COOKIE_SAMESITE = "Lax"
     SECURITY_API_KEY = os.environ.get("SECURITY_API_KEY", "").strip()
+    # n8n/SOAR가 계정 잠금, IP 차단, 인시던트 API를 호출할 때 쓴다.
+    # 별도 값을 두지 않으면 기존 보안 이벤트 API 키를 함께 사용한다.
+    ADMIN_API_KEY = (
+        os.environ.get("ADMIN_API_KEY", "").strip() or SECURITY_API_KEY
+    )
+    ADMIN_ALLOWLIST = [
+        username.strip()
+        for username in os.environ.get("ADMIN_ALLOWLIST", "").split(",")
+        if username.strip()
+    ]
     AUTO_POST_ON_DENY = os.environ.get("AUTO_POST_ON_DENY", "0") == "1"
+    # 로그인 실패 같은 앱 계층 보안 이벤트를 Graylog GELF UDP 입력으로 보낸다.
+    GELF_HOST = os.environ.get("GELF_HOST", "localhost").strip() or "localhost"
+    GELF_PORT = int(os.environ.get("GELF_PORT", "12201"))
     PUBLIC_API_KEY = (
         os.environ.get("PUBLIC_API_KEY", "").strip()
         or os.environ.get("DATA_GO_KR_SERVICE_KEY", "").strip()

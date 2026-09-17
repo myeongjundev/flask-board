@@ -213,6 +213,34 @@ class RoleAccessTestCase(unittest.TestCase):
         self.assertTrue(by_name["boss"]["is_me"])
         self.assertEqual(len(body["roles"]), 3)
 
+    def test_admin_page_has_privilege_audit_controls(self):
+        _, token = self.sign_in_as("boss", ROLE_ADMIN)
+        response = self.client.get("/admin", headers=self.bearer(token))
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('id="grant-username"', html)
+        self.assertIn('id="allowlist"', html)
+        self.assertIn("/api/admin/violations", html)
+        self.assertIn("/api/admin/revoke", html)
+
+    def test_privilege_automation_cannot_demote_self_or_last_admin(self):
+        _, token = self.sign_in_as("boss", ROLE_ADMIN)
+        headers = self.bearer(token)
+
+        grant = self.client.post(
+            "/api/admin/grant",
+            headers=headers,
+            json={"username": "boss", "role": ROLE_USER},
+        )
+        self.assertEqual(grant.status_code, 400)
+        self.assertIn("자기 자신", grant.get_json()["msg"])
+
+        revoke = self.client.post(
+            "/api/admin/revoke", headers=headers, json={"username": "boss"}
+        )
+        self.assertEqual(revoke.status_code, 400)
+        self.assertIn("자기 자신", revoke.get_json()["msg"])
+
     def test_admin_can_change_role(self):
         self.register("normal")
         _, token = self.sign_in_as("boss", ROLE_ADMIN)

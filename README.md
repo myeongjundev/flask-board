@@ -435,6 +435,7 @@ powershell -ExecutionPolicy Bypass -File scripts\unregister_alert_task.ps1
 | 경로 | 내용 |
 | --- | --- |
 | `alert_sender.py` | 경보를 만들어 n8n으로 보내는 전송기 |
+| `privilege_revoke_bot.py` | 허용목록 밖 관리자 탐지·GELF 신고·선택적 직접 회수 |
 | `controllers/security_controller.py` | 보안 이벤트 REST API |
 | `templates/dashboard.html` | 보안 대시보드 |
 | `scripts/capture_api_evidence.ps1` | 401·400·201·200을 한 화면에 (증적용) |
@@ -447,4 +448,23 @@ powershell -ExecutionPolicy Bypass -File scripts\unregister_alert_task.ps1
 
 ```powershell
 python -m pytest -q        # 8 passed
+```
+
+## 강사님 최신 보안 대응 코드 통합
+
+강사님 저장소의 계정 잠금, IP 차단, 인시던트 생성, 관리자 과잉권한 탐지·회수 흐름을
+이 게시판의 숫자 등급(일반 0, 골드 1, 관리자 2)과 서버 측 JWT 인증에 맞춰 옮겼습니다.
+자동화는 `X-API-Key: ADMIN_API_KEY`로 다음 API를 호출할 수 있습니다.
+
+- 계정: `POST /api/admin/lock`, `POST /api/admin/unlock`
+- IP: `POST /api/admin/block`, `POST /api/admin/unblock`, `GET /api/admin/blocked`
+- 인시던트: `POST /api/admin/incident`, `GET /api/admin/incidents`
+- 권한: `GET /api/admin/violations`, `POST /api/admin/grant`, `POST /api/admin/revoke`
+
+권한 회수 봇은 먼저 출력만 확인한 뒤 실제 연동을 켜는 순서가 안전합니다.
+
+```powershell
+python privilege_revoke_bot.py --dry-run
+python privilege_revoke_bot.py
+python privilege_revoke_bot.py --revoke
 ```

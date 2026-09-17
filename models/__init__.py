@@ -1,3 +1,5 @@
+from .blocked_ip import BlockedIP
+from .incident import Incident
 from .post import Post
 from .security_event import SecurityEvent
 from .user import (
@@ -14,6 +16,8 @@ __all__ = [
     "User",
     "Post",
     "SecurityEvent",
+    "BlockedIP",
+    "Incident",
     "ROLE_USER",
     "ROLE_GOLD",
     "ROLE_ADMIN",
