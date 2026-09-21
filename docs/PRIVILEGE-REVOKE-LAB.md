@@ -10,7 +10,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 작업 폴더 | `C:\SKT aleph\flask-board` |
+| 작업 폴더 | `C:\SKTaleph\flask-board` |
 | 게시판 | http://localhost:5000 (`.venv\Scripts\python.exe app.py`) |
 | MySQL | 도커 `flask_mysql` · 3306 · DB `my_new_board_db` |
 | compose 프로젝트 | `skt-board` (`.env`의 `COMPOSE_PROJECT_NAME`) |
@@ -53,7 +53,7 @@
 ### 준비 — 키를 변수에 담는다
 
 ```powershell
-$KEY = ((Select-String -Path "C:\SKT aleph\flask-board\.env" -Pattern '^ADMIN_API_KEY=').Line -split '=',2)[1]
+$KEY = ((Select-String -Path "C:\SKTaleph\flask-board\.env" -Pattern '^ADMIN_API_KEY=').Line -split '=',2)[1]
 $h = @{ "Content-Type" = "application/json"; "X-API-Key" = $KEY }
 ```
 
@@ -73,7 +73,7 @@ docker compose up -d
 ### 1. 게시판 기동
 
 ```powershell
-Set-Location "C:\SKT aleph\flask-board"
+Set-Location "C:\SKTaleph\flask-board"
 .\.venv\Scripts\python.exe app.py
 ```
 

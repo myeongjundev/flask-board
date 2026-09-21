@@ -1,5 +1,11 @@
 # 로그인 경보 게시판 실행 준비
 
+프로젝트 폴더나 PC를 옮기는 경우에는 먼저
+[`docs/RELOCATION-RUNBOOK.md`](docs/RELOCATION-RUNBOOK.md)를 따른다.
+
+SYN flood 탐지 미니 실습은
+[`docs/MINI-LAB-SYN-FLOOD.md`](docs/MINI-LAB-SYN-FLOOD.md)를 따른다.
+
 ## 1. 로컬 설정
 
 ```powershell

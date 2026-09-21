@@ -12,3 +12,6 @@ venv/
 
 # 실행하면 다시 쌓인다
 *.log
+
+# n8n 내보내기에는 Webhook 토큰과 API 키가 포함될 수 있다.
+backups/n8n/

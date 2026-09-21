@@ -430,6 +430,180 @@ powershell -ExecutionPolicy Bypass -File scripts\unregister_alert_task.ps1
 
 ---
 
+## 미니 실습 — 과잉 관리자 권한 자동 회수 (2026-09-17)
+
+허용목록에 없는 관리자 계정을 탐지해 Graylog로 신고하고, Graylog Event
+Notification이 n8n을 호출하면 게시판 API가 해당 계정의 권한을 자동 회수하는
+전 구간(E2E) 실습입니다. 회수 결과는 보안 이벤트로 기록하고 Discord · Slack ·
+Telegram에 동시에 알렸습니다.
+
+```text
+[권한 회수 봇/스케줄러]       [Graylog]              [n8n]
+허용목록 밖 관리자 탐지 ──▶ rule:priv-unauthorized-admin ──▶ /webhook/priv-guard
+                                                               │
+                           ┌───────────────────────────────────┤
+                           ▼                                   ▼
+                 Flask 관리자 회수 API                 메신저 3종 알림
+                    admin(2) → 일반(0)                         │
+                           │                                   │
+                           └────▶ 보안 이벤트 감사 기록 ◀──────┘
+```
+
+### 결과 요약
+
+| 확인 지점 | 결과 |
+| --- | --- |
+| 관리자 화면 | 회원 등급과 허용목록 밖 관리자 상태 확인 |
+| Graylog | `rule:priv-unauthorized-admin` 이벤트 정의와 n8n 알림 연결 |
+| n8n | 탐지·회수·판정·메신저·게시판 저장 토폴로지 구성 |
+| 직접 API 검증 | `zz_admin2`를 관리자(2)에서 일반(0)로 회수, HTTP 200 |
+| E2E 검증 | `zz_victim`에게 관리자 권한 부여 후 다음 탐지 주기에 자동 회수 |
+| 감사 기록 | `decision: deny`, `severity: High`, `source: privilege-guard` 저장 |
+| 알림 | 작업 스케줄러 실행 결과가 Discord · Slack · Telegram에 도착 |
+
+### 1. 게시판 관리자 화면과 보안 대시보드
+
+관리자 화면에서 회원 등급과 허용목록을 관리하고, 보안 대시보드에서 자동 권한 회수
+건수와 `권한 회수` 출처 이벤트를 확인했습니다.
+
+![관리자 화면과 보안 대시보드](<image/0917_미니실습/연습장 대시보드, 관리자 화면.png>)
+
+### 2. Graylog 이벤트 정의와 n8n 알림
+
+Graylog가 `rule:priv-unauthorized-admin`을 1분 범위로 검색하고, 일치한 이벤트의
+`user`, `src_ip`, `granted_by` 필드를 n8n의 `priv-guard` Webhook으로 전달하도록
+구성했습니다.
+
+![Graylog 과잉권한 이벤트 구성](<image/0917_미니실습/Graylog 구성 화면.png>)
+
+### 3. n8n 자동 회수 토폴로지
+
+Webhook 수신 후 판정과 분기를 거쳐 게시판의 권한 회수 API를 호출하고, 결과를
+메신저 3종과 게시판 감사 기록으로 보내는 흐름입니다.
+
+![n8n 권한 회수 토폴로지](<image/0917_미니실습/n8n 토폴로지 구성 화면.png>)
+
+### 4. 작업 스케줄러와 3채널 알림
+
+Windows 작업 스케줄러가 권한 회수 봇을 5분마다 실행하며, 회수 결과가 Telegram,
+Discord, Slack에 모두 도착하는 것을 확인했습니다.
+
+![작업 스케줄러와 메신저 3종 알림](<image/0917_미니실습/작업스케줄링 3채널 알림.png>)
+
+### 5. 회수 API 직접 검증
+
+먼저 `POST /api/admin/revoke`를 직접 호출해 `zz_admin2`의 역할이 관리자(2)에서
+일반(0)으로 변경되고 회수 이벤트 ID가 반환되는 것을 확인했습니다.
+
+![권한 회수 API 직접 호출](<image/0917_미니실습/자동 권한 회수 봇-1-회수 API 직접 호출.png>)
+
+### 6. 봇 신고의 Graylog 수집 확인
+
+Graylog Search API에서 `rule:priv-unauthorized-admin` 메시지와 학생 식별자 등 신고
+필드가 수집된 것을 확인했습니다.
+
+![권한 회수 봇 Graylog 수집](<image/0917_미니실습/자동 권한 회수 봇-2-봇 → Graylog 수집 확인.png>)
+
+### 7. 전 구간 E2E 자동 회수 검증
+
+테스트 계정 `zz_victim`에 관리자 권한을 부여한 다음 탐지 주기를 기다리고, 관리자
+목록과 보안 이벤트를 다시 조회했습니다. 자동 회수 후 감사 기록에는 `deny`, `High`,
+`privilege-guard`와 회수 사유가 남았습니다.
+
+![E2E 1단계 관리자 권한 부여](<image/0917_미니실습/자동 권한 회수 봇-3-전 구간(E2E) 자동 회수-1-관리자 권한 부여.png>)
+
+![E2E 2단계 관리자 목록 재조회](<image/0917_미니실습/자동 권한 회수 봇-4-전 구간(E2E) 자동 회수-2-60초 후 관리자 목록 조회.png>)
+
+![E2E 3단계 감사 기록 확인](<image/0917_미니실습/자동 권한 회수 봇-5-전 구간(E2E) 자동 회수-3-감사 기록 확인.png>)
+
+### 8. n8n 수신기 단독 확인
+
+`POST /webhook/priv-guard`에 테스트 이벤트를 직접 보내 HTTP 200과
+`Workflow was started` 응답을 확인했습니다.
+
+![n8n priv-guard 수신기 요청](<image/0917_미니실습/n8n 수신기 요청 (자동 권한 회수 봇-6-n8n 수신기).png>)
+
+관련 실행·점검 절차는 `docs/PRIVILEGE-REVOKE-LAB.md`에 정리했습니다.
+
+---
+
+## 미니 실습 — SYN Flood 탐지부터 알림·저장까지 (2026-09-21)
+
+Kali 환경에서 짧은 SYN Flood를 발생시키고, Graylog가 이를 수집한 뒤 n8n을 통해
+메신저 3종과 게시판 대시보드까지 전달되는 전체 흐름을 확인했습니다. 실습은 로컬
+환경을 대상으로 2초만 수행했으며, 3초 수집 창의 SYN 개수가 임계값 1,000을 넘을
+때만 `rule:hping3-synflood` 경보를 보내도록 구성했습니다.
+
+```text
+[Kali/WSL]                 [Graylog]                 [n8n]
+hping3 2초 + tcpdump 3초 → GELF UDP 12201 수집 → Event Notification
+   SYN 505,178건             rule:hping3-synflood       │
+                                                         ├─▶ Discord
+                                                         ├─▶ Slack
+                                                         ├─▶ Telegram
+                                                         └─▶ Flask REST API → MySQL → /dashboard
+```
+
+### 결과 요약
+
+| 확인 지점 | 결과 |
+| --- | --- |
+| 공격 발생기 | 3초 창에서 SYN **505,178건** 탐지, 임계값 1,000 초과 |
+| Graylog | `rule:hping3-synflood`, `count: 505178`, `source: kali` 메시지 수집 |
+| n8n | 실행 ID 182 성공, 메신저 3종과 게시판 HTTP Request 노드 완료 |
+| 통신 채널 | Discord · Slack · Telegram 모두 메시지 도착 |
+| 게시판 | Graylog 출처 이벤트가 `deny / High`로 저장되고 상세 정보 확인 가능 |
+
+### 1. 안전한 2초 공격과 SYN 개수 확인
+
+로컬 대상에 2초 동안 SYN을 보내고 tcpdump로 3초간 집계했습니다. 측정값 505,178건이
+임계값 1,000을 넘어 Graylog GELF 경보가 전송됐습니다.
+
+![Kali SYN Flood 실행](<image/Kali에서 공격 한 방 (2초짜리, 안전).png>)
+
+### 2. Graylog 탐지
+
+Graylog 검색 결과에서 `rule`이 `hping3-synflood`이고 메시지와 `count`가 모두
+505,178로 기록된 것을 확인했습니다.
+
+![Graylog SYN Flood 탐지](<image/graylog 탐지 화면.png>)
+
+### 3. n8n 실행 흐름
+
+Graylog Event Notification이 `Webhook1`으로 들어온 뒤 판정, IF 분기, 메신저 3종,
+게시판 저장 요청까지 실행됐습니다. Executions 화면에서 실행 성공과 각 출력 노드의
+초록 체크를 확인했습니다.
+
+![n8n SYN Flood 실행 흐름](<image/n8n 실행 흐름도.png>)
+
+### 4. 메신저 3종 도착
+
+![Discord 알림](image/디스코드.png)
+
+![Slack 알림](image/슬랙.png)
+
+![Telegram 알림](image/텔레그램.png)
+
+### 5. 게시판 대시보드 저장 결과
+
+대시보드에서 전체 이벤트와 출처별 집계를 확인하고, Graylog 이벤트를 펼쳐
+`deny`, `High`, 출발지 IP, 실패 횟수와 판정 사유가 저장된 것을 확인했습니다.
+
+![게시판 보안 대시보드](image/게시판 결과.png)
+
+![게시판 탐지 이벤트 상세](image/게시판 탐지 상세.png)
+
+> **재현 시 확인할 점:** 이 실습 캡처의 메신저 문구는 데이터가 `deny / High`인데도
+> `✅ [허용]` 템플릿으로 표시됐습니다. 원인은 n8n의 `거부인가?` IF 조건에서 비교값이
+> `" deny"`처럼 앞 공백을 포함했던 것입니다. 다음 실행 전 비교값을 정확히 `deny`로
+> 두어야 `🚫 [거부]` 분기로 전달됩니다. 환경 재배치 스크립트도 이 공백을 정리하도록
+> 보완했습니다.
+
+관련 재현 절차는 `docs/MINI-LAB-SYN-FLOOD.md`, 자리 변경 후 환경 점검 방법은
+`docs/RELOCATION-RUNBOOK.md`에 정리했습니다.
+
+---
+
 ## 부록 — 저장소 안내
 
 | 경로 | 내용 |

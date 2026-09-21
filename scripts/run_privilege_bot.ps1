@@ -34,7 +34,7 @@ $env:PYTHONIOENCODING = 'utf-8'
 $OutFile = Join-Path $env:TEMP 'privilege_bot.out'
 $ErrFile = Join-Path $env:TEMP 'privilege_bot.err'
 
-# 경로에 공백(SKT aleph)이 있어 따옴표로 감싸 넘긴다.
+# 프로젝트 경로가 바뀌어도 안전하도록 전체 경로를 따옴표로 감싸 넘긴다.
 $BotPath = '"{0}"' -f (Join-Path $RepoRoot 'privilege_revoke_bot.py')
 
 $proc = Start-Process -FilePath $Python `

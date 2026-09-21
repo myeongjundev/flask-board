@@ -1,6 +1,6 @@
 """Flask 게시판 엔트리포인트."""
 from flask import Flask, jsonify, request
-from sqlalchemy import inspect, text
+from sqlalchemy import Integer, inspect, text
 
 from config import Config
 from controllers import all_blueprints
@@ -44,6 +44,50 @@ def _ensure_user_security_schema():
                 connection.execute(text(statement))
 
 
+def _ensure_user_role_schema():
+    """이전 게시판의 문자열 등급을 현재 숫자 등급으로 한 번만 변환한다.
+
+    예전 DB는 ``user/gold/admin``을 VARCHAR로 저장했지만 현재 애플리케이션은
+    ``0/1/2`` 정수 등급을 사용한다. SQLAlchemy의 ``create_all``은 기존 컬럼의
+    타입을 바꾸지 않으므로 시작 시 명시적으로 마이그레이션한다.
+    """
+    role_column = next(
+        column
+        for column in inspect(db.engine).get_columns("users")
+        if column["name"] == "role"
+    )
+    if isinstance(role_column["type"], Integer):
+        return
+
+    if db.engine.dialect.name not in {"mysql", "mariadb"}:
+        raise RuntimeError(
+            "users.role이 숫자 컬럼이 아닙니다. DB 마이그레이션이 필요합니다."
+        )
+
+    with db.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                UPDATE users
+                SET role = CASE LOWER(TRIM(CAST(role AS CHAR)))
+                    WHEN 'admin' THEN '2'
+                    WHEN 'gold' THEN '1'
+                    WHEN 'user' THEN '0'
+                    WHEN '2' THEN '2'
+                    WHEN '1' THEN '1'
+                    ELSE '0'
+                END
+                """
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE users "
+                "MODIFY COLUMN role INTEGER NOT NULL DEFAULT 0"
+            )
+        )
+
+
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
@@ -65,6 +109,7 @@ def create_app(config_class=Config):
     with app.app_context():
         db.create_all()
         _ensure_user_security_schema()
+        _ensure_user_role_schema()
 
     @app.before_request
     def block_ip_guard():
