@@ -22,6 +22,16 @@ chmod +x syn_flood_lab.sh
 sudo ./syn_flood_lab.sh 192.168.3.14
 ```
 
+WSL의 Kali라면 복사하지 않고 Windows 경로에서 바로 돌린다. `/mnt/c` 아래 파일은 실행
+권한이 없을 수 있어 `bash`로 실행한다.
+
+```bash
+bash /mnt/c/SKTaleph/flask-board/scripts/syn_flood_lab.sh 192.168.3.14
+```
+
+**공격 사이에 5분 이상 간격을 둔다.** 이벤트 정의의 알림 유예가 5분이라, 그 안의 재공격은
+이벤트만 쌓이고 알림은 가지 않는다(아래 5절).
+
 정상 출력 예시:
 
 ```text
@@ -48,3 +58,42 @@ Graylog 이벤트 정의는 15초마다 최근 60초를 검색하므로 메시�
 2. Discord, Slack, Telegram 메시지
 3. Graylog 검색 결과와 matched 이벤트
 4. n8n 실행 성공 및 전체 흐름도
+
+## 5. Graylog·n8n 설정값 (DB에만 있으므로 여기 적어 둔다)
+
+Graylog 이벤트 정의와 알림은 Graylog의 MongoDB에만 저장된다. 컨테이너를 새로 만들면
+아래 값으로 다시 만든다.
+
+### 이벤트 정의 `hping3 SYN flood 탐지 테스트`
+
+| 항목 | 값 |
+| --- | --- |
+| 검색 | `rule:hping3-synflood` |
+| 검색 범위 / 실행 주기 | 60초 / 15초 |
+| 사용자 정의 필드 (Template, string) | `src_ip` = `${source.src_ip}` · `syn_count` = `${source.syn_count}` · `student` = `${source.student}` |
+| 알림 유예 (Grace period) | 5분 — 15초마다 60초를 다시 검색해 한 메시지를 4번 잡으므로 |
+| 알림 | `n8n webhook (login-guard)` |
+
+### 알림 `n8n webhook (login-guard)` 본문
+
+```json
+{"student":"${event.fields.student}","source":"graylog","alerts":[{"ip":"${event.fields.src_ip}","level":10,"rule":"hping3-synflood","fail_count":"${event.fields.syn_count}"}]}
+```
+
+학생 식별자·출발지·SYN 개수를 본문에 글자로 적어 두지 않는다. 처음 판은 학생 식별자가
+수업 자료 계정으로, 이후 판은 IP와 개수까지 고정값으로 적혀 있어 실제 공격 정보가 n8n에
+가지 않았다.
+
+권한 회수 쪽 이벤트 정의에도 같은 방식으로 `student` = `${source.student}` 필드를 두고,
+알림 `n8n webhook(priv-guard)` 본문은 `"student": "${event.fields.student}"`를 쓴다.
+
+### n8n `3-kali-hping-syn-flood-test`
+
+- `거부인가?` IF: `{{ $json.decision }}` equals `deny` — 비교값 앞뒤에 공백이 없어야 한다
+- `메세지 거부🚫` 문구 (SYN 경보일 때만 개수를 넣는다)
+
+```text
+🚫 [거부] {{ $json.src_ip }} — {{ $json.rule === 'hping3-synflood' ? 'SYN ' + Number($json.fail_count).toLocaleString('en-US') + '개 탐지 · ' + $json.rule + ' → ' + $json.decision : $json.reason }} · 심각도 {{ $json.severity }} (학생 {{ $json.student }})
+```
+
+n8n 2.x는 저장만으로는 운영 Webhook에 반영되지 않는다. 고친 뒤 **Publish**까지 누른다.

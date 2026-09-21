@@ -529,75 +529,77 @@ Graylog Search API에서 `rule:priv-unauthorized-admin` 메시지와 학생 식�
 
 ## 미니 실습 — SYN Flood 탐지부터 알림·저장까지 (2026-09-21)
 
-Kali 환경에서 짧은 SYN Flood를 발생시키고, Graylog가 이를 수집한 뒤 n8n을 통해
-메신저 3종과 게시판 대시보드까지 전달되는 전체 흐름을 확인했습니다. 실습은 로컬
-환경을 대상으로 2초만 수행했으며, 3초 수집 창의 SYN 개수가 임계값 1,000을 넘을
-때만 `rule:hping3-synflood` 경보를 보내도록 구성했습니다.
+Kali(WSL)에서 로컬 게시판을 대상으로 2초짜리 SYN Flood를 보내고, Graylog가 탐지한
+결과가 n8n을 거쳐 메신저 3종과 게시판 대시보드까지 전달되는지 확인했습니다. 3초 수집
+창의 SYN 개수가 임계값 1,000을 넘을 때만 GELF 경보를 보냅니다. 허가된 로컬 실습망에서만
+실행합니다.
 
 ```text
-[Kali/WSL]                 [Graylog]                 [n8n]
-hping3 2초 + tcpdump 3초 → GELF UDP 12201 수집 → Event Notification
-   SYN 505,178건             rule:hping3-synflood       │
-                                                         ├─▶ Discord
-                                                         ├─▶ Slack
-                                                         ├─▶ Telegram
-                                                         └─▶ Flask REST API → MySQL → /dashboard
+[Kali/WSL]                   [Graylog]                         [n8n]
+hping3 2초 + tcpdump 3초  →  GELF UDP 12201               →  판정 → 거부 분기
+SYN 개수·출발지·학생을       rule:hping3-synflood 이벤트        ├─▶ Discord
+GELF 필드로 전송             src_ip·syn_count·student 추출       ├─▶ Slack
+                             5분 안의 재경보는 억제              ├─▶ Telegram
+                                                                └─▶ Flask REST API → MySQL → /dashboard
 ```
 
-### 결과 요약
+### 결과 요약 (최종 실행 14:36)
 
 | 확인 지점 | 결과 |
 | --- | --- |
-| 공격 발생기 | 3초 창에서 SYN **505,178건** 탐지, 임계값 1,000 초과 |
-| Graylog | `rule:hping3-synflood`, `count: 505178`, `source: kali` 메시지 수집 |
-| n8n | 실행 ID 182 성공, 메신저 3종과 게시판 HTTP Request 노드 완료 |
-| 통신 채널 | Discord · Slack · Telegram 모두 메시지 도착 |
-| 게시판 | Graylog 출처 이벤트가 `deny / High`로 저장되고 상세 정보 확인 가능 |
+| 공격 발생기 | 3초 창에서 SYN **35,033개**, 임계값 1,000 초과 |
+| Graylog | 메시지 필드 `src_ip 172.22.205.113` · `syn_count 35033` · `student myeongjundev` |
+| n8n | 실행 ID 185, 워크플로 판 `e011de72`, **거부** 분기 |
+| 메신저 3종 | `🚫 [거부] 172.22.205.113 — SYN 35,033개 탐지 · hping3-synflood → deny · 심각도 High (학생 myeongjundev)` |
+| 게시판 | `security_events` id 26, `deny / High`, 출발지와 SYN 개수 저장 |
 
 ### 1. 안전한 2초 공격과 SYN 개수 확인
 
-로컬 대상에 2초 동안 SYN을 보내고 tcpdump로 3초간 집계했습니다. 측정값 505,178건이
-임계값 1,000을 넘어 Graylog GELF 경보가 전송됐습니다.
-
-![Kali SYN Flood 실행](<image/Kali에서 공격 한 방 (2초짜리, 안전).png>)
+![Kali SYN Flood 실행](<image/syn_flood/Kali에서 공격 한 방 (2초짜리, 안전).png>)
 
 ### 2. Graylog 탐지
 
-Graylog 검색 결과에서 `rule`이 `hping3-synflood`이고 메시지와 `count`가 모두
-505,178로 기록된 것을 확인했습니다.
+GELF로 받은 `src_ip`, `syn_count`, `student`가 메시지 필드로 저장되고, 이벤트 정의가
+이 셋을 이벤트 필드로 뽑아 알림 본문에 싣습니다.
 
-![Graylog SYN Flood 탐지](<image/graylog 탐지 화면.png>)
+![Graylog SYN Flood 탐지](<image/syn_flood/graylog 탐지 화면.png>)
 
 ### 3. n8n 실행 흐름
 
-Graylog Event Notification이 `Webhook1`으로 들어온 뒤 판정, IF 분기, 메신저 3종,
-게시판 저장 요청까지 실행됐습니다. Executions 화면에서 실행 성공과 각 출력 노드의
-초록 체크를 확인했습니다.
+`Webhook1` → 판정 → `거부인가?`의 true 갈래 → `메세지 거부🚫` → 메신저 3종과 게시판 저장.
 
-![n8n SYN Flood 실행 흐름](<image/n8n 실행 흐름도.png>)
+![n8n SYN Flood 실행 흐름](<image/syn_flood/n8n 실행 흐름도.png>)
 
 ### 4. 메신저 3종 도착
 
-![Discord 알림](image/디스코드.png)
+![Discord 알림](image/syn_flood/디스코드.png)
 
-![Slack 알림](image/슬랙.png)
+![Slack 알림](image/syn_flood/슬랙.png)
 
-![Telegram 알림](image/텔레그램.png)
+슬랙 화면 위쪽 14:27 알림은 SYN 개수를 문구에 넣기 전의 같은 공격 알림입니다.
+
+![Telegram 알림](image/syn_flood/텔레그램.png)
 
 ### 5. 게시판 대시보드 저장 결과
 
-대시보드에서 전체 이벤트와 출처별 집계를 확인하고, Graylog 이벤트를 펼쳐
-`deny`, `High`, 출발지 IP, 실패 횟수와 판정 사유가 저장된 것을 확인했습니다.
+![게시판 SYN Flood 이벤트](<image/syn_flood/게시판 탐지.png>)
 
-![게시판 보안 대시보드](image/게시판 결과.png)
+### 처음 실행에서 찾아 고친 것
 
-![게시판 탐지 이벤트 상세](image/게시판 탐지 상세.png)
+첫 실행(12:34, SYN 505,178건, n8n 실행 179~182)은 흐름이 끝까지 돌았지만 결과가
+틀렸습니다. 캡처만 보고 넘기지 않고 n8n 실행 기록과 Graylog 설정을 대조해 네 가지를
+고쳤습니다.
 
-> **재현 시 확인할 점:** 이 실습 캡처의 메신저 문구는 데이터가 `deny / High`인데도
-> `✅ [허용]` 템플릿으로 표시됐습니다. 원인은 n8n의 `거부인가?` IF 조건에서 비교값이
-> `" deny"`처럼 앞 공백을 포함했던 것입니다. 다음 실행 전 비교값을 정확히 `deny`로
-> 두어야 `🚫 [거부]` 분기로 전달됩니다. 환경 재배치 스크립트도 이 공백을 정리하도록
-> 보완했습니다.
+| 증상 | 원인 | 고친 것 |
+| --- | --- | --- |
+| 공격인데 메신저에 `✅ [허용]`으로 표시 (데이터는 `deny`) | n8n `거부인가?` IF 비교값이 `" deny"`로 앞 공백 포함 | 비교값을 `deny`로 |
+| 경보의 학생 식별자가 수업 자료의 계정 | Graylog 알림 본문에 학생 식별자가 고정 문자열 | 이벤트 정의에서 GELF의 `student`를 필드로 뽑아 본문에 사용 |
+| 경보에 SYN 개수가 없음. 이후 수정본은 IP와 개수까지 고정값 | 이벤트 정의에 필드 추출이 없고 알림 본문이 고정 문자열 | `src_ip`·`syn_count`도 필드로 뽑아 사용, 거부 문구에 SYN 개수 표시 |
+| 공격 한 번에 같은 경보가 4번 | Graylog가 15초마다 최근 60초를 다시 검색해 같은 메시지를 4번 잡음 | 알림 유예 5분(`grace_period_ms`) |
+
+유예 때문에 5분 안에 다시 공격하면 이벤트는 쌓여도 알림은 가지 않습니다. 재현할 때는
+공격 사이에 5분 이상 간격을 둡니다. Graylog 설정은 Graylog DB에만 있으므로 값을
+`docs/MINI-LAB-SYN-FLOOD.md`에 적어 두었습니다.
 
 관련 재현 절차는 `docs/MINI-LAB-SYN-FLOOD.md`, 자리 변경 후 환경 점검 방법은
 `docs/RELOCATION-RUNBOOK.md`에 정리했습니다.
