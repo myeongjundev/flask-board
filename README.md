@@ -6,6 +6,19 @@
 - **메신저 3종 중 실제로 연결한 것:** **슬랙 · 디스코드 · 텔레그램 3종 모두**
 - **저장소:** https://github.com/myeongjundev/flask-board
 
+### 이 저장소에 담긴 실습
+
+맨 처음 제출한 것은 ①~⑤의 로그인 경보 봇이고, 같은 게시판 위에 실습을 이어 붙였습니다.
+
+| 날짜 | 실습 | 설명 위치 |
+| --- | --- | --- |
+| 09-04 ~ 09-08 | 로그인 경보 자동화 봇 — 파이썬 전송기 → n8n 판정 → 메신저 3종·게시판 저장 | 이 문서 ①~⑤, 심화 S1·S4 |
+| 09-10 | 등급별 접근 제어 — 일반·골드·관리자, 자기 강등·자기 삭제·마지막 관리자 보호 | `docs/ROLE-ACCESS-CONTROL.md` |
+| 09-17 | 과잉 관리자 권한 자동 회수 — 수업 코드 이식, Graylog 탐지 → n8n 회수 | 이 문서 "미니 실습 — 과잉 관리자 권한 자동 회수", `docs/PRIVILEGE-REVOKE-LAB.md` |
+| 09-21 | SYN Flood 탐지 — Kali 2초 공격 → Graylog → n8n → 메신저 3종·게시판 | 이 문서 "미니 실습 — SYN Flood", `docs/MINI-LAB-SYN-FLOOD.md` |
+
+자동 테스트는 45개이고 모두 통과합니다(실행 방법은 맨 아래 부록).
+
 ---
 
 ## ① 무엇을 만들었는지
@@ -613,18 +626,32 @@ GELF로 받은 `src_ip`, `syn_count`, `student`가 메시지 필드로 저장되
 | `alert_sender.py` | 경보를 만들어 n8n으로 보내는 전송기 |
 | `privilege_revoke_bot.py` | 허용목록 밖 관리자 탐지·GELF 신고·선택적 직접 회수 |
 | `controllers/security_controller.py` | 보안 이벤트 REST API |
+| `controllers/authz.py` | 등급별 접근 제어 판정 (`api_role_required` · `page_role_required`) |
+| `controllers/admin_controller.py` | 회원 관리와 관리자 보안 API, 자기 강등·자기 삭제·마지막 관리자 보호 |
 | `templates/dashboard.html` | 보안 대시보드 |
+| `graylog/docker-compose.yml` | Graylog · MongoDB · OpenSearch 실습 환경 |
 | `scripts/capture_api_evidence.ps1` | 401·400·201·200을 한 화면에 (증적용) |
 | `scripts/capture_db_evidence.ps1` | 저장된 행과 판정별 건수 (증적용) |
+| `scripts/capture_role_evidence.py` | 등급별 접근 제어 캡처 (증적용) |
+| `scripts/manage_roles.py` | 회원 등급 조회·변경 |
 | `scripts/*_alert_task.ps1` | 심화 S4 스케줄러 등록·해제 |
+| `scripts/*_privilege_task.ps1` · `run_privilege_bot.ps1` | 권한 회수 봇 스케줄러 등록·해제·실행 |
+| `scripts/syn_flood_lab.sh` | SYN Flood 실습 — 2초 공격, 3초 집계, 임계값 넘으면 GELF 경보 |
+| `scripts/portcheck2.sh` | 실습망 포트 점검 결과를 n8n 취약점 점검 알림으로 전송 |
+| `scripts/*_n8n_*.js` | n8n 워크플로 점검·갱신·실행 확인 |
+| `scripts/relocate_environment.ps1` | 자리·PC를 옮긴 뒤 환경 재배치 (`docs/RELOCATION-RUNBOOK.md`) |
 | `docs/SUBMISSION-CHECKLIST.md` | 항목별 확인 기록 |
+| `tests/` | 자동 테스트 45개 |
 
 두 캡처 스크립트는 API 키와 DB 비밀번호를 **화면에 찍지 않습니다.** `.env`에서 읽어
 헤더와 컨테이너 환경변수로만 넘깁니다.
 
 ```powershell
-python -m pytest -q        # 8 passed
+.venv\Scripts\python.exe -m unittest discover -s tests    # Ran 45 tests ... OK
 ```
+
+`pytest`는 `requirements.txt`에 없어 표준 `unittest`로 돌립니다. 파일별로 전송기 4 ·
+게시판 5 · 등급별 접근 제어 29 · 권한 회수 봇 2 · 보안 대응 API 5개입니다.
 
 ## 강사님 최신 보안 대응 코드 통합
 
