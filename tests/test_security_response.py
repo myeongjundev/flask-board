@@ -30,6 +30,7 @@ class TestConfig:
     AUTO_POST_ON_DENY = False
     GELF_HOST = "localhost"
     GELF_PORT = 12201
+    GELF_ENABLED = False  # 실습 Graylog로 테스트 경보를 보내지 않는다.
     PUBLIC_API_KEY = ""
     PUBLIC_API_URL = "https://example.invalid"
 

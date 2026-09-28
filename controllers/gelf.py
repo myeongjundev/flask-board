@@ -2,11 +2,22 @@
 import json
 import socket
 
-from flask import current_app
+from flask import current_app, request
+
+
+def request_src_ip():
+    """GELF src_ip 필드용 출발지. 랩 프록시가 넘긴 첫 IP를 우선한다."""
+    forwarded_for = request.headers.get("X-Forwarded-For", "")
+    if forwarded_for:
+        return forwarded_for.split(",", 1)[0].strip()
+    return request.remote_addr or "0.0.0.0"
 
 
 def send_gelf(short_message, rule, **fields):
     """GELF 전송 실패가 사용자 로그인 흐름을 막지 않도록 조용히 실패한다."""
+    # 테스트가 실습 Graylog로 가짜 경보를 쏘지 않도록 설정으로 끌 수 있다.
+    if not current_app.config.get("GELF_ENABLED", True):
+        return False
     host = current_app.config.get("GELF_HOST", "localhost")
     port = int(current_app.config.get("GELF_PORT", 12201))
     message = {

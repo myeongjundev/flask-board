@@ -42,6 +42,7 @@ class Config:
     # 로그인 실패 같은 앱 계층 보안 이벤트를 Graylog GELF UDP 입력으로 보낸다.
     GELF_HOST = os.environ.get("GELF_HOST", "localhost").strip() or "localhost"
     GELF_PORT = int(os.environ.get("GELF_PORT", "12201"))
+    GELF_ENABLED = os.environ.get("GELF_ENABLED", "1").strip() != "0"
     PUBLIC_API_KEY = (
         os.environ.get("PUBLIC_API_KEY", "").strip()
         or os.environ.get("DATA_GO_KR_SERVICE_KEY", "").strip()

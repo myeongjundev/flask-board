@@ -16,6 +16,13 @@ ROLE_NAMES = {
 
 VALID_ROLES = tuple(ROLE_NAMES)
 
+# SIEM 신호의 role 필드는 강사님 룰(Graylog·n8n)과 같은 영문 값으로 보낸다.
+ROLE_CODES = {
+    ROLE_USER: "user",
+    ROLE_GOLD: "gold",
+    ROLE_ADMIN: "admin",
+}
+
 
 def role_name(role):
     """등급 숫자를 사람이 읽는 이름으로 바꾼다."""
@@ -47,6 +54,10 @@ class User(db.Model):
     @property
     def role_name(self):
         return role_name(self.role)
+
+    @property
+    def role_code(self):
+        return ROLE_CODES.get(self.role, "unknown")
 
     def has_role(self, minimum_role):
         """요구 등급 이상이면 True. 등급은 숫자가 클수록 권한이 넓다."""

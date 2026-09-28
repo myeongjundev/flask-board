@@ -65,6 +65,50 @@
       </section>
     </div>
 
+    {# 같은 출발지의 이벤트를 한 사건으로 묶은 티켓. 생성·종료는 관리자 API에서만 한다. #}
+    <section class="bg-white rounded-xl shadow-sm mb-5">
+      <div class="p-4 border-b border-gray-100 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="font-semibold">인시던트 티켓 <span id="incident-total" class="ml-1 text-sm font-normal text-gray-400"></span></h2>
+          <p class="text-xs text-gray-400 mt-0.5">같은 출발지의 이벤트를 한 사건으로 묶은 기록 · 열린 티켓은 대응이 끝나지 않은 것</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <p class="text-xs text-gray-500">
+            열림 <b id="inc-open" class="text-red-600">-</b> · 종료 <b id="inc-closed" class="text-gray-600">-</b>
+            <span id="inc-sev" class="text-gray-400"></span>
+          </p>
+          <div class="inline-flex rounded-lg bg-gray-100 p-0.5 text-xs" role="group" aria-label="티켓 상태 필터">
+            <button data-status="" class="inc-btn px-3 py-1.5 rounded-md">전체</button>
+            <button data-status="open" class="inc-btn px-3 py-1.5 rounded-md">열림</button>
+            <button data-status="closed" class="inc-btn px-3 py-1.5 rounded-md">종료</button>
+          </div>
+        </div>
+      </div>
+
+      <table class="hidden md:table w-full table-fixed text-sm">
+        <thead class="bg-gray-50 text-gray-500 text-xs">
+          <tr>
+            <th class="w-14 text-left px-4 py-2.5 font-medium">#</th>
+            <th class="w-20 text-left px-2 py-2.5 font-medium">상태</th>
+            <th class="w-20 text-left px-2 py-2.5 font-medium">심각도</th>
+            <th class="w-36 text-left px-2 py-2.5 font-medium">출발지 IP</th>
+            <th class="w-16 text-right px-2 py-2.5 font-medium">이벤트</th>
+            <th class="text-left px-4 py-2.5 font-medium">제목 · 조치</th>
+            <th class="w-40 text-left px-2 py-2.5 font-medium">생성 / 종료</th>
+            <th class="w-8 px-2"></th>
+          </tr>
+        </thead>
+        <tbody id="incident-rows" class="divide-y divide-gray-100">
+          <tr><td colspan="8" class="px-4 py-10 text-center text-gray-400">불러오는 중…</td></tr>
+        </tbody>
+      </table>
+      <ul id="incident-cards" class="md:hidden divide-y divide-gray-100"></ul>
+
+      <p class="px-4 py-2.5 text-xs text-gray-400 border-t border-gray-100">
+        읽기 전용 화면입니다. 티켓 생성·종료는 관리자 API(<code>/api/admin/incident</code>, <code>/api/admin/incident/close</code>)에서 합니다.
+      </p>
+    </section>
+
     <section class="bg-white rounded-xl shadow-sm">
       <div class="p-4 border-b border-gray-100 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
@@ -298,6 +342,92 @@
       });
     }
 
+    const incidentState = { status: '' };
+    const openIncidents = new Set();
+    const incidentBadge = status => status === 'open'
+      ? '<span class="inline-flex px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">열림</span>'
+      : '<span class="inline-flex px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">종료</span>';
+    const incidentSummary = incident => `<p class="text-xs text-gray-400">요약</p>
+      <pre class="mt-1 text-xs text-gray-700 whitespace-pre-wrap break-words font-sans">${escapeHtml(incident.summary || '-')}</pre>`;
+
+    async function loadIncidentSummary() {
+      const params = buildQuery({ decision: '', source: '', q: '' });
+      const data = await readJson('/api/security/incidents/summary?' + params);
+      const byStatus = data.by_status || {};
+      document.getElementById('inc-open').textContent = byStatus.open || 0;
+      document.getElementById('inc-closed').textContent = byStatus.closed || 0;
+      const severities = Object.entries(data.open_by_severity || {})
+        .map(([name, total]) => `${name} ${total}`).join(' · ');
+      document.getElementById('inc-sev').textContent = severities ? `(열림 ${severities})` : '';
+    }
+
+    function renderIncidents(incidents) {
+      const rows = document.getElementById('incident-rows');
+      const cards = document.getElementById('incident-cards');
+      document.getElementById('incident-total').textContent = `${incidents.length}건`;
+      if (!incidents.length) {
+        rows.innerHTML = '<tr><td colspan="8" class="px-4 py-10 text-center text-gray-400">티켓이 없습니다.</td></tr>';
+        cards.innerHTML = '<li class="px-4 py-10 text-center text-gray-400">티켓이 없습니다.</li>';
+        return;
+      }
+
+      rows.innerHTML = incidents.map(incident => {
+        const open = openIncidents.has(incident.id);
+        return `<tr data-id="${incident.id}" class="incident-row cursor-pointer hover:bg-gray-50 ${open ? 'bg-indigo-50/40' : ''}">
+          <td class="px-4 py-2.5 text-gray-400 tabular-nums">${incident.id}</td>
+          <td class="px-2 py-2.5">${incidentBadge(incident.status)}</td>
+          <td class="px-2 py-2.5 ${severityClass(incident.severity)}">${escapeHtml(incident.severity)}</td>
+          <td class="px-2 py-2.5 truncate font-mono text-xs text-gray-700" title="${escapeHtml(incident.src_ip)}">${escapeHtml(incident.src_ip)}</td>
+          <td class="px-2 py-2.5 text-right tabular-nums">${incident.event_count}</td>
+          <td class="px-4 py-2.5">
+            <div class="truncate text-gray-800" title="${escapeHtml(incident.title)}">${escapeHtml(incident.title)}</div>
+            <div class="truncate text-xs text-gray-400" title="${escapeHtml(incident.actions || '')}">조치: ${escapeHtml(incident.actions || '-')}</div>
+          </td>
+          <td class="px-2 py-2.5 text-xs text-gray-500 tabular-nums">
+            <div>${escapeHtml(formatDateTime(incident.created_at))}</div>
+            <div class="text-gray-400">${incident.closed_at ? escapeHtml(formatDateTime(incident.closed_at)) : '—'}</div>
+          </td>
+          <td class="px-2 py-2.5 text-gray-400 text-center">${open ? '▴' : '▾'}</td>
+        </tr>${open ? `<tr class="bg-indigo-50/40"><td colspan="8" class="px-4 pb-4 pt-1">${incidentSummary(incident)}</td></tr>` : ''}`;
+      }).join('');
+
+      cards.innerHTML = incidents.map(incident => {
+        const open = openIncidents.has(incident.id);
+        return `<li data-id="${incident.id}" class="incident-row px-4 py-3 cursor-pointer ${open ? 'bg-indigo-50/40' : ''}">
+          <div class="flex items-center gap-2 flex-wrap">
+            ${incidentBadge(incident.status)}
+            <span class="text-xs ${severityClass(incident.severity)}">${escapeHtml(incident.severity)}</span>
+            <span class="font-mono text-xs text-gray-500">${escapeHtml(incident.src_ip)}</span>
+            <span class="ml-auto text-xs text-gray-400 tabular-nums">#${incident.id} · 이벤트 ${incident.event_count}</span>
+          </div>
+          <p class="mt-1.5 text-sm text-gray-800 ${open ? '' : 'truncate'}">${escapeHtml(incident.title)}</p>
+          <p class="text-xs text-gray-400">${escapeHtml(formatDateTime(incident.created_at))}${incident.closed_at ? ' → ' + escapeHtml(formatDateTime(incident.closed_at)) : ''}</p>
+          ${open ? `<div class="mt-3">${incidentSummary(incident)}</div>` : ''}
+        </li>`;
+      }).join('');
+
+      document.querySelectorAll('.incident-row').forEach(row => row.addEventListener('click', () => {
+        const id = Number(row.dataset.id);
+        openIncidents.has(id) ? openIncidents.delete(id) : openIncidents.add(id);
+        renderIncidents(incidents);
+      }));
+    }
+
+    async function loadIncidents() {
+      const params = buildQuery({ decision: '', source: '', q: '' });
+      if (incidentState.status) params.set('status', incidentState.status);
+      params.set('limit', 50);
+      const data = await readJson('/api/security/incidents?' + params);
+      renderIncidents(data.incidents || []);
+    }
+
+    function syncIncidentControls() {
+      document.querySelectorAll('.inc-btn').forEach(button => {
+        const on = button.dataset.status === incidentState.status;
+        button.className = 'inc-btn px-3 py-1.5 rounded-md ' + (on ? 'bg-white text-indigo-700 font-semibold shadow-sm' : 'text-gray-600 hover:text-gray-900');
+      });
+    }
+
     function syncControls() {
       document.querySelectorAll('.filter-btn').forEach(button => {
         const on = button.dataset.decision === state.decision;
@@ -326,7 +456,13 @@
       clearError();
       try {
         if (students) await loadStudents();
-        await Promise.all([summary ? loadSummary() : null, loadEvents()]);
+        // 티켓은 학생 필터만 따른다. 이벤트 쪽 쪽 이동·검색으로는 다시 부르지 않는다.
+        await Promise.all([
+          summary ? loadSummary() : null,
+          summary ? loadIncidentSummary() : null,
+          summary ? loadIncidents() : null,
+          loadEvents(),
+        ]);
         syncControls();
         document.getElementById('updated-at').textContent = '갱신 ' + formatDateTime(new Date()).slice(11);
       } catch (error) { showError(error); }
@@ -346,6 +482,14 @@
       else setFilter({ decision: card === 'all' ? '' : card, source: '', q: '' });
     }));
 
+    document.querySelectorAll('.inc-btn').forEach(button => button.addEventListener('click', async () => {
+      incidentState.status = button.dataset.status;
+      openIncidents.clear();
+      syncIncidentControls();
+      clearError();
+      try { await loadIncidents(); } catch (error) { showError(error); }
+    }));
+
     let timer = null;
     document.getElementById('auto-refresh').addEventListener('change', event => {
       clearInterval(timer);
@@ -353,6 +497,7 @@
     });
 
     syncControls();
+    syncIncidentControls();
     reload({ students: true });
   </script>
 </body>

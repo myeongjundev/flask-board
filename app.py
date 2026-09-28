@@ -1,9 +1,12 @@
 """Flask 게시판 엔트리포인트."""
+import secrets
+
 from flask import Flask, jsonify, request
 from sqlalchemy import Integer, inspect, text
 
 from config import Config
 from controllers import all_blueprints
+from controllers.gelf import send_gelf
 from extensions import db, jwt
 from models import BlockedIP
 
@@ -111,14 +114,38 @@ def create_app(config_class=Config):
         _ensure_user_security_schema()
         _ensure_user_role_schema()
 
+    def is_trusted_automation():
+        """보안·관리자 API 키가 맞는 요청인가(SOAR 봇 판별). 키가 비면 아무도 믿지 않는다."""
+        supplied = request.headers.get("X-API-Key", "")
+        if not supplied:
+            return False
+        valid_keys = {
+            app.config.get("SECURITY_API_KEY") or "",
+            app.config.get("ADMIN_API_KEY") or "",
+        } - {""}
+        return any(secrets.compare_digest(supplied, key) for key in valid_keys)
+
     @app.before_request
     def block_ip_guard():
         """차단 목록에 있는 IP의 일반 요청을 컨트롤러 실행 전에 거부한다."""
         # 복구가 불가능해지는 상황을 막기 위해 관리자 대응 API는 예외로 둔다.
         if request.path.startswith("/api/admin"):
             return None
+        # 인증된 자동화 요청도 예외다. SOAR가 127.0.0.1을 차단하면 같은 PC의
+        # 경보봇이 /api/security/events 기록까지 403을 맞는 자기차단이 생긴다
+        # (강사님 2026-09-24 실측). 틀린 키는 여기서 걸러지지 않는다.
+        if is_trusted_automation():
+            return None
         client_ip = _client_ip()
         if client_ip and db.session.get(BlockedIP, client_ip):
+            # S5 지속성 탐지: 403만 주고 끝내면 공격이 멈췄는지 알 수 없다.
+            send_gelf(
+                f"blocked ip retried {request.path[:80]}",
+                rule="blocked-retry",
+                src_ip=client_ip,
+                path=request.path[:120],
+                code=403,
+            )
             return (
                 jsonify(
                     {

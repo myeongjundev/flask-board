@@ -81,6 +81,15 @@ def login():
     if user.failed_logins:
         user.failed_logins = 0
         db.session.commit()
+    # 성공도 남긴다. 실패만 모으면 결국 뚫린 계정을 알 수 없다.
+    # 계정명·출발지·등급만 보내고 비밀번호와 토큰은 절대 넣지 않는다.
+    send_gelf(
+        f"successful login for '{username}' from {src_ip}",
+        rule="login-success",
+        username=username,
+        src_ip=src_ip,
+        role=user.role_code,
+    )
     token = create_access_token(identity=str(user.id))
     response = jsonify(
         access_token=token,

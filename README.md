@@ -16,8 +16,9 @@
 | 09-10 | 등급별 접근 제어 — 일반·골드·관리자, 자기 강등·자기 삭제·마지막 관리자 보호 | `docs/ROLE-ACCESS-CONTROL.md` |
 | 09-17 | 과잉 관리자 권한 자동 회수 — 수업 코드 이식, Graylog 탐지 → n8n 회수 | 이 문서 "미니 실습 — 과잉 관리자 권한 자동 회수", `docs/PRIVILEGE-REVOKE-LAB.md` |
 | 09-21 | SYN Flood 탐지 — Kali 2초 공격 → Graylog → n8n → 메신저 3종·게시판 | 이 문서 "미니 실습 — SYN Flood", `docs/MINI-LAB-SYN-FLOOD.md` |
+| 09-28 | 강사님 연휴 업데이트 이식 — 인시던트 티켓 대시보드, 탐지 신호 4종(S5·S6·S9), SOAR 자기차단 수정 | 이 문서 "강사님 최신 보안 대응 코드 통합" |
 
-자동 테스트는 45개이고 모두 통과합니다(실행 방법은 맨 아래 부록).
+자동 테스트는 65개이고 모두 통과합니다(실행 방법은 맨 아래 부록).
 
 ---
 
@@ -641,17 +642,19 @@ GELF로 받은 `src_ip`, `syn_count`, `student`가 메시지 필드로 저장되
 | `scripts/*_n8n_*.js` | n8n 워크플로 점검·갱신·실행 확인 |
 | `scripts/relocate_environment.ps1` | 자리·PC를 옮긴 뒤 환경 재배치 (`docs/RELOCATION-RUNBOOK.md`) |
 | `docs/SUBMISSION-CHECKLIST.md` | 항목별 확인 기록 |
-| `tests/` | 자동 테스트 45개 |
+| `tests/` | 자동 테스트 65개 |
 
 두 캡처 스크립트는 API 키와 DB 비밀번호를 **화면에 찍지 않습니다.** `.env`에서 읽어
 헤더와 컨테이너 환경변수로만 넘깁니다.
 
 ```powershell
-.venv\Scripts\python.exe -m unittest discover -s tests    # Ran 45 tests ... OK
+.venv\Scripts\python.exe -m unittest discover -s tests    # Ran 65 tests ... OK
 ```
 
 `pytest`는 `requirements.txt`에 없어 표준 `unittest`로 돌립니다. 파일별로 전송기 4 ·
-게시판 5 · 등급별 접근 제어 29 · 권한 회수 봇 2 · 보안 대응 API 5개입니다.
+게시판 5 · 등급별 접근 제어 29 · 권한 회수 봇 2 · 보안 대응 API 5 · 인시던트 대시보드 5 ·
+탐지 신호·자기차단 15개입니다. 테스트 설정은 `GELF_ENABLED = False`라 실습 Graylog로
+신호를 보내지 않습니다.
 
 ## 강사님 최신 보안 대응 코드 통합
 
@@ -663,6 +666,43 @@ GELF로 받은 `src_ip`, `syn_count`, `student`가 메시지 필드로 저장되
 - IP: `POST /api/admin/block`, `POST /api/admin/unblock`, `GET /api/admin/blocked`
 - 인시던트: `POST /api/admin/incident`, `GET /api/admin/incidents`
 - 권한: `GET /api/admin/violations`, `POST /api/admin/grant`, `POST /api/admin/revoke`
+
+### 09-28 강사님 연휴 업데이트 이식
+
+강사님 저장소의 09-24~25 커밋을 이 게시판 구조에 맞춰 옮겼습니다.
+
+**인시던트 티켓 대시보드.** `/dashboard`에 티켓 표를 추가했습니다. 열림·종료 건수, 상태
+필터, 열린 티켓의 심각도 분포를 보여 주고, 행을 누르면 자동 취합된 요약이 펼쳐집니다.
+조회는 이벤트 조회처럼 키 없이 열고, 생성·종료는 그대로 관리자 API에서만 합니다.
+
+- `GET /api/security/incidents` — `status`(open|closed) · `student` · `limit`(최대 100), 최신순
+- `GET /api/security/incidents/summary` — 상태별 건수와 열린 티켓의 심각도 분포
+
+**탐지 신호 4종(GELF).** 지금까지 로그로 남지 않아 탐지 룰을 만들 수 없던 상황을 신고합니다.
+`role`은 강사님 룰과 같게 `user`·`gold`·`admin` 영문 값으로 보냅니다. 비밀번호·토큰·시도된
+키 값은 어떤 신호에도 넣지 않습니다.
+
+| `_rule` | 보내는 때 | 탐지 시나리오 |
+| --- | --- | --- |
+| `login-success` | 로그인 성공 | 심야 접속·계정 탈취·한 계정 다중 IP의 토대 |
+| `blocked-retry` | 차단된 IP가 다시 요청해 403 | S5 차단 후에도 계속 두드림(지속성) |
+| `admin-auth-fail` | 보안 이벤트 API 키가 없거나 틀림, 관리자 API에 틀린 키 | S6 API 키 추측 |
+| `gold-access` | 골드 이상이 `/gold`를 엶(403은 제외) | S9 권한 상승 → 실제 열람 상관 탐지 |
+
+강사님 코드와 다른 점: 골드 열람은 `/api/gold/posts`가 아니라 `/gold` 페이지에서 보내고,
+관리자 API(`/api/admin/*`)에 틀린 키를 낸 경우도 `admin-auth-fail`로 신고합니다. 관리자
+화면은 쿠키로 로그인하고 키를 보내지 않으므로 이 신호에 걸리지 않습니다.
+
+**SOAR 자기차단 수정.** SOAR가 `127.0.0.1`을 차단하면 같은 PC의 경보봇이
+`/api/security/events` 기록까지 403을 맞던 문제(강사님 09-24 실측)를 막았습니다.
+`SECURITY_API_KEY`나 `ADMIN_API_KEY`가 맞는 요청은 IP 차단을 건너뜁니다. 키 설정이 비어
+있으면 아무 요청도 믿지 않고, 틀린 키로는 우회할 수 없습니다.
+
+**테스트 격리.** `.env`의 `GELF_ENABLED=0`이면 GELF를 보내지 않습니다(기본은 켜짐). 테스트
+설정은 모두 꺼 두어, 테스트가 실습 Graylog에 가짜 경보를 남기지 않습니다.
+
+로그인 성공을 Wazuh용 `security.log` 파일에도 남기는 강사님 코드는 이 게시판에 파일 로그
+기능이 없어 옮기지 않았습니다.
 
 권한 회수 봇은 먼저 출력만 확인한 뒤 실제 연동을 켜는 순서가 안전합니다.
 

@@ -17,6 +17,7 @@ class TestConfig:
     JWT_SECRET_KEY = "test-only-jwt-secret-at-least-32-bytes"
     SECURITY_API_KEY = "test-only-security-api-key"
     AUTO_POST_ON_DENY = False
+    GELF_ENABLED = False  # 실습 Graylog로 테스트 경보를 보내지 않는다.
     PUBLIC_API_KEY = ""
     PUBLIC_API_URL = "https://example.invalid"
 

@@ -7,8 +7,9 @@ from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy import func
 from werkzeug.security import generate_password_hash
 
+from controllers.gelf import request_src_ip, send_gelf
 from extensions import db
-from models import Post, SecurityEvent, User
+from models import Incident, Post, SecurityEvent, User
 
 security_bp = Blueprint("security", __name__, url_prefix="/api/security")
 
@@ -19,6 +20,14 @@ def require_api_key(fn):
         expected = current_app.config.get("SECURITY_API_KEY", "")
         supplied = request.headers.get("X-API-Key", "")
         if not expected or not secrets.compare_digest(supplied, expected):
+            # S6 인증 공격 탐지. 시도된 키 값은 그 자체가 비밀 후보라 남기지 않는다.
+            send_gelf(
+                f"admin api auth failed {request.path[:80]}",
+                rule="admin-auth-fail",
+                src_ip=request_src_ip(),
+                path=request.path[:120],
+                code=401,
+            )
             return jsonify({"msg": "API 키가 없거나 잘못되었습니다."}), 401
         return fn(*args, **kwargs)
     return wrapper
@@ -167,6 +176,43 @@ def security_events_summary():
             {"src_ip": ip, "events": int(events), "fails": int(fails)}
             for ip, events, fails in top
         ],
+    })
+
+
+@security_bp.get("/incidents")
+def list_security_incidents():
+    """대시보드용 인시던트 티켓 목록. 이벤트 조회처럼 읽기만 키 없이 연다.
+
+    생성·종료는 관리자 키가 필요한 /api/admin/incident 쪽에 그대로 둔다.
+    """
+    status = request.args.get("status", type=str)
+    student = request.args.get("student", type=str)
+    requested_limit = request.args.get("limit", default=20, type=int)
+    limit = min(max(requested_limit if requested_limit is not None else 20, 1), 100)
+    query = Incident.query
+    if status in ("open", "closed"):
+        query = query.filter_by(status=status)
+    if student:
+        query = query.filter_by(student=student)
+    rows = query.order_by(Incident.id.desc()).limit(limit).all()
+    return jsonify({"count": len(rows), "incidents": [row.to_dict() for row in rows]})
+
+
+@security_bp.get("/incidents/summary")
+def security_incidents_summary():
+    """상태별 티켓 수와 열린 티켓의 심각도 분포(대시보드 카드용)."""
+    student = request.args.get("student", type=str)
+    by_status = db.session.query(Incident.status, func.count(Incident.id))
+    open_by_severity = db.session.query(
+        Incident.severity, func.count(Incident.id)
+    ).filter(Incident.status == "open")
+    if student:
+        by_status = by_status.filter(Incident.student == student)
+        open_by_severity = open_by_severity.filter(Incident.student == student)
+    return jsonify({
+        "student": student,
+        "by_status": dict(by_status.group_by(Incident.status).all()),
+        "open_by_severity": dict(open_by_severity.group_by(Incident.severity).all()),
     })
 
 

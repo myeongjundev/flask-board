@@ -5,6 +5,7 @@ from functools import wraps
 from flask import Blueprint, current_app, g, jsonify, request
 
 from controllers.authz import api_role_required, current_user
+from controllers.gelf import request_src_ip, send_gelf
 from extensions import db
 from models import (
     ROLE_ADMIN,
@@ -48,6 +49,16 @@ def _admin_or_api_key_required(view):
         if expected_key and supplied_key == expected_key:
             g.security_actor = "apikey"
             return view(*args, **kwargs)
+        if supplied_key:
+            # S6: 키를 내밀었는데 틀렸다 = 추측 시도. 관리자 화면(쿠키 로그인)은
+            # 키를 보내지 않으므로 여기에 걸리지 않는다. 키 값은 남기지 않는다.
+            send_gelf(
+                f"admin api auth failed {request.path[:80]}",
+                rule="admin-auth-fail",
+                src_ip=request_src_ip(),
+                path=request.path[:120],
+                code=401,
+            )
 
         user = current_user()
         if user is None:
