@@ -8,6 +8,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from controllers.authz import current_user
 from controllers.gelf import send_gelf
+from controllers.seclog import write_seclog
 from extensions import db
 from models import ROLE_USER, User
 
@@ -55,6 +56,7 @@ def login():
             src_ip=src_ip,
             locked="1",
         )
+        write_seclog("login_failed", username, src_ip)  # 잠긴 계정 시도도 실패로 기록
         return (
             jsonify(
                 {
@@ -76,6 +78,7 @@ def login():
             src_ip=src_ip,
             count=1,
         )
+        write_seclog("login_failed", username or "(unknown)", src_ip)
         return jsonify({"msg": "아이디 또는 비밀번호가 잘못되었습니다."}), 401
 
     if user.failed_logins:
@@ -90,6 +93,7 @@ def login():
         src_ip=src_ip,
         role=user.role_code,
     )
+    write_seclog("login_success", username, src_ip)
     token = create_access_token(identity=str(user.id))
     response = jsonify(
         access_token=token,

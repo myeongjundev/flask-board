@@ -43,6 +43,11 @@ class Config:
     GELF_HOST = os.environ.get("GELF_HOST", "localhost").strip() or "localhost"
     GELF_PORT = int(os.environ.get("GELF_PORT", "12201"))
     GELF_ENABLED = os.environ.get("GELF_ENABLED", "1").strip() != "0"
+    # 로그인 사건을 한 줄씩 남기는 호스트 파일. Wazuh 에이전트가 읽어 간다. 비우면 기록을 끈다.
+    SECURITY_LOG_PATH = os.environ.get(
+        "SECURITY_LOG_PATH",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "security.log"),
+    )
     PUBLIC_API_KEY = (
         os.environ.get("PUBLIC_API_KEY", "").strip()
         or os.environ.get("DATA_GO_KR_SERVICE_KEY", "").strip()
