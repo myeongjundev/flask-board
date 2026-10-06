@@ -17,8 +17,9 @@
 | 09-17 | 과잉 관리자 권한 자동 회수 — 수업 코드 이식, Graylog 탐지 → n8n 회수 | 이 문서 "미니 실습 — 과잉 관리자 권한 자동 회수", `docs/PRIVILEGE-REVOKE-LAB.md` |
 | 09-21 | SYN Flood 탐지 — Kali 2초 공격 → Graylog → n8n → 메신저 3종·게시판 | 이 문서 "미니 실습 — SYN Flood", `docs/MINI-LAB-SYN-FLOOD.md` |
 | 09-28 | 강사님 연휴 업데이트 이식 — 인시던트 티켓 대시보드, 탐지 신호 4종(S5·S6·S9), SOAR 자기차단 수정 | 이 문서 "강사님 최신 보안 대응 코드 통합" |
+| 10-06 | Gobuster·Nikto 웹 스캔 — 404 탐지 로그 연결 복구, Graylog 이벤트·차단 후 재시도 확인 | 이 문서 "10-06 Gobuster 404 스캔 탐지 연결 복구" |
 
-자동 테스트는 65개이고 모두 통과합니다(실행 방법은 맨 아래 부록).
+자동 테스트는 69개이고 모두 통과합니다(실행 방법은 맨 아래 부록).
 
 ---
 
@@ -642,18 +643,18 @@ GELF로 받은 `src_ip`, `syn_count`, `student`가 메시지 필드로 저장되
 | `scripts/*_n8n_*.js` | n8n 워크플로 점검·갱신·실행 확인 |
 | `scripts/relocate_environment.ps1` | 자리·PC를 옮긴 뒤 환경 재배치 (`docs/RELOCATION-RUNBOOK.md`) |
 | `docs/SUBMISSION-CHECKLIST.md` | 항목별 확인 기록 |
-| `tests/` | 자동 테스트 65개 |
+| `tests/` | 자동 테스트 69개 |
 
 두 캡처 스크립트는 API 키와 DB 비밀번호를 **화면에 찍지 않습니다.** `.env`에서 읽어
 헤더와 컨테이너 환경변수로만 넘깁니다.
 
 ```powershell
-.venv\Scripts\python.exe -m unittest discover -s tests    # Ran 65 tests ... OK
+.venv\Scripts\python.exe -m unittest discover -s tests    # Ran 69 tests ... OK
 ```
 
 `pytest`는 `requirements.txt`에 없어 표준 `unittest`로 돌립니다. 파일별로 전송기 4 ·
 게시판 5 · 등급별 접근 제어 29 · 권한 회수 봇 2 · 보안 대응 API 5 · 인시던트 대시보드 5 ·
-탐지 신호·자기차단 15개입니다. 테스트 설정은 `GELF_ENABLED = False`라 실습 Graylog로
+탐지 신호·자기차단 19개입니다. 테스트 설정은 `GELF_ENABLED = False`라 실습 Graylog로
 신호를 보내지 않습니다.
 
 ## 강사님 최신 보안 대응 코드 통합
@@ -711,3 +712,53 @@ python privilege_revoke_bot.py --dry-run
 python privilege_revoke_bot.py
 python privilege_revoke_bot.py --revoke
 ```
+
+### 10-06 Gobuster 404 스캔 탐지 연결 복구
+
+`app.py`의 응답 후 처리에서 404 응답을 GELF UDP로 전송합니다. Graylog에서는
+`rule:web-scan`으로 검색하며, 메시지에 `src_ip`, `path`, `code=404`가 들어갑니다.
+요청의 쿼리 문자열은 기록하지 않습니다. 관리자 대응 API(`/api/admin*`)의 404는
+집계에서 제외하며, 이미 차단된 IP의 403은 기존 `blocked-retry`로 기록합니다.
+GELF 전송 장애가 나더라도 원래 HTTP 응답은 유지합니다.
+
+현재 로컬 Graylog의 웹 스캐너 탐지 규칙은 활성화되어 있고, 모든 Stream에서
+`rule:web-scan`을 검색해 `src_ip`별로 집계합니다. 조건은 **30초 안에 30회 초과**이며,
+실행 주기는 30초입니다. 따라서 404 로그 한 건은 Search에서 보이지만 이 조건의
+이벤트를 만들지는 않습니다. 설정을 변경했다면 실제 Event Definition 값을 확인하세요.
+
+실습 터미널에서 `GW`가 게시판 호스트를 가리키는지 확인한 뒤 실행합니다.
+
+```bash
+gobuster dir -u "http://$GW:5000" -w /usr/share/wordlists/dirb/common.txt -t 30
+```
+
+`-q`를 빼면 진행 상황을 확인하기 쉽습니다. `/admin`과 `/gold`의 401은 로그인 정보가
+없어 접근이 거절된 결과이며, 스캔 탐지는 Gobuster 결과에 표시되지 않는 404 요청을
+집계합니다. 임의 경로부터 403이 나오면 IP 차단 상태를 먼저 확인하세요.
+
+2026-10-06 검증: 자동 테스트 69개 통과. 실행 중인 게시판에 진단용 404 요청 한 건을
+보내 Graylog Search에서 동일 경로의 `web-scan` 메시지 수신을 확인했습니다.
+
+이어 수업 중 실행한 스캔의 로그를 Graylog API로 확인했습니다. 아래 시각은 한국 시각입니다.
+
+| 시각 | 확인 결과 |
+| --- | --- |
+| 14:48:05 | 웹 스캔 탐지 이벤트 생성 — 출발지 IP별 404 562건 집계 |
+| 14:48:35 | 웹 스캔 탐지 이벤트 생성 — 출발지 IP별 404 1,102건 집계 |
+| 14:48:46~14:49:53 | Nikto 실행 시간대 — `blocked-retry` 7,975건, `web-scan` 0건 |
+
+Nikto 실행 때는 출발지 IP가 이미 차단되어 403을 반환했습니다. 이 요청은
+`blocked-retry`로 기록되므로 `rule:web-scan` 조건으로 새 이벤트를 만들지 않습니다.
+Search와 Alerts & Events의 조회 시간에 스캔 시각이 포함되어야 결과가 보입니다.
+연결된 메신저 알림의 실제 전달 여부는 이번 확인에 포함하지 않았습니다.
+
+Nikto의 보안 헤더 경고는 스캔 진단 결과이며, 해당 출력 문구를 Graylog로 전송하는
+기능은 없습니다. 스캔 완료 후 새 서버 버전 정보를 개발팀에 제출할지 묻는 질문을
+생략하고 제출도 하지 않으려면 다음 옵션을 사용합니다.
+
+```bash
+nikto -h "http://${GW}:5000/" -ask no
+```
+
+`GW`와 `gw`는 서로 다른 변수입니다. `X-Content-Type-Options` 누락과 CSP
+`frame-ancestors` 관련 헤더 경고는 이번 탐지 연결 수정에서 변경하지 않았습니다.

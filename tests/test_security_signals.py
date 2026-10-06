@@ -156,6 +156,39 @@ class SecuritySignalTestCase(unittest.TestCase):
         self.client.get("/api/security/events")
         self.assertEqual(self.sent, [])
 
+    # ---------- web-scan ----------
+
+    def test_missing_paths_emit_scan_signals_with_client_ip(self):
+        for path in ("/missing-scan-path-one", "/missing-scan-path-two"):
+            response = self.client.get(
+                path + "?token=do-not-log",
+                headers={"X-Forwarded-For": "203.0.113.77, 127.0.0.1"},
+            )
+            self.assertEqual(response.status_code, 404)
+        signals = self.signals("web-scan")
+        self.assertEqual(len(signals), 2, self.sent)
+        self.assertEqual(signals[0]["src_ip"], "203.0.113.77")
+        self.assertEqual(signals[0]["path"], "/missing-scan-path-one")
+        self.assertEqual(signals[0]["code"], 404)
+        self.assertNotIn("do-not-log", repr(signals))
+
+    def test_admin_api_404_does_not_emit_scan_signal(self):
+        response = self.client.get("/api/admin/missing-scan-path")
+        self.assertEqual(response.status_code, 404)
+        self.assertNotIn("web-scan", self.rules())
+
+    def test_blocked_scan_emits_retry_instead_of_scan_signal(self):
+        self.block_self()
+        response = self.client.get("/missing-scan-path")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self.rules(), ["blocked-retry"])
+
+    def test_scan_logging_failure_preserves_404_response(self):
+        with patch("app.send_gelf", side_effect=OSError("Graylog unavailable")):
+            with self.assertLogs(self.app.logger, level="WARNING"):
+                response = self.client.get("/missing-scan-path")
+        self.assertEqual(response.status_code, 404)
+
     # ---------- gold-access (S9) ----------
 
     def test_gold_and_admin_access_is_reported(self):

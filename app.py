@@ -158,6 +158,23 @@ def create_app(config_class=Config):
             )
         return None
 
+    @app.after_request
+    def web_scan_probe(response):
+        """없는 경로의 404를 신고해 Graylog가 출발지별 스캔을 집계하게 한다."""
+        if response.status_code == 404 and not request.path.startswith("/api/admin"):
+            try:
+                send_gelf(
+                    f"404 probe {request.path[:80]}",
+                    rule="web-scan",
+                    src_ip=_client_ip(),
+                    path=request.path[:120],
+                    code=404,
+                )
+            except Exception:
+                # 로그 전송 장애가 원래 HTTP 응답을 바꾸지 않도록 한다.
+                app.logger.warning("Graylog web-scan log could not be sent.")
+        return response
+
     return app
 
 
