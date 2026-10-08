@@ -1,0 +1,971 @@
+[
+  {
+    "_scope": "DEFAULT",
+    "id": "6ac5d5b2a9bc4432b34dae8f",
+    "title": "10 - Suricata IDS 경보 폭주 탐지(src_ip, 5회 이상)",
+    "description": "Suricata IDS 가 탐지한 공격(nmap 포트 스캔, sqlmap SQLi)을 src_ip 별 집계 -> n8n 차단",
+    "updated_at": "2026-10-07T05:16:33.991Z",
+    "matched_at": "2026-10-07T05:29:04.078Z",
+    "priority": 2,
+    "alert": true,
+    "config": {
+      "type": "aggregation-v1",
+      "query": "rule:ids-alert",
+      "query_parameters": [],
+      "filters": [],
+      "streams": [],
+      "stream_categories": [],
+      "group_by": [
+        "src_ip"
+      ],
+      "series": [
+        {
+          "type": "count",
+          "id": "count-",
+          "field": null
+        }
+      ],
+      "conditions": {
+        "expression": {
+          "expr": ">=",
+          "left": {
+            "expr": "number-ref",
+            "ref": "count-"
+          },
+          "right": {
+            "expr": "number",
+            "value": 5.0
+          }
+        }
+      },
+      "search_within_ms": 30000,
+      "execute_every_ms": 30000,
+      "use_cron_scheduling": false,
+      "cron_expression": null,
+      "cron_timezone": null,
+      "event_limit": 100
+    },
+    "field_spec": {
+      "src_ip": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.src_ip}",
+            "require_values": false
+          }
+        ]
+      },
+      "username": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.username}",
+            "require_values": false
+          }
+        ]
+      }
+    },
+    "key_spec": [
+      "src_ip"
+    ],
+    "notification_settings": {
+      "grace_period_ms": 120000,
+      "backlog_size": 0
+    },
+    "notifications": [
+      {
+        "notification_id": "6ab1e60280130f5bcf77dd1e",
+        "notification_parameters": null
+      }
+    ],
+    "storage": [
+      {
+        "type": "persist-to-streams-v1",
+        "streams": [
+          "000000000000000000000002"
+        ]
+      }
+    ],
+    "scheduler": null,
+    "state": "ENABLED"
+  },
+  {
+    "_scope": "DEFAULT",
+    "id": "6ab1e61680130f5bcf77dd64",
+    "title": "3-IP 반복 로그인 실패 탐지 (src_ipp, 5회이상)",
+    "description": "같은 출발지 IP 에서 2분 내 로그인 실패 5회 이상 -> n8n 으로 실 차단 트리거",
+    "updated_at": "2026-09-22T03:20:31.244Z",
+    "matched_at": "2026-10-08T03:11:31.246Z",
+    "priority": 2,
+    "alert": true,
+    "config": {
+      "type": "aggregation-v1",
+      "query": "rule:login-bruteforce",
+      "query_parameters": [],
+      "filters": [],
+      "streams": [],
+      "stream_categories": [],
+      "group_by": [
+        "src_ip"
+      ],
+      "series": [
+        {
+          "type": "count",
+          "id": "count-",
+          "field": null
+        }
+      ],
+      "conditions": {
+        "expression": {
+          "expr": ">=",
+          "left": {
+            "expr": "number-ref",
+            "ref": "count-"
+          },
+          "right": {
+            "expr": "number",
+            "value": 5.0
+          }
+        }
+      },
+      "search_within_ms": 120000,
+      "execute_every_ms": 15000,
+      "use_cron_scheduling": false,
+      "cron_expression": null,
+      "cron_timezone": null,
+      "event_limit": 100
+    },
+    "field_spec": {
+      "src_ip": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.src_ip}",
+            "require_values": false
+          }
+        ]
+      },
+      "username": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.username}",
+            "require_values": false
+          }
+        ]
+      }
+    },
+    "key_spec": [
+      "src_ip"
+    ],
+    "notification_settings": {
+      "grace_period_ms": 60000,
+      "backlog_size": 0
+    },
+    "notifications": [
+      {
+        "notification_id": "6ab1e60280130f5bcf77dd1e",
+        "notification_parameters": null
+      }
+    ],
+    "storage": [
+      {
+        "type": "persist-to-streams-v1",
+        "streams": [
+          "000000000000000000000002"
+        ]
+      }
+    ],
+    "scheduler": null,
+    "state": "ENABLED"
+  },
+  {
+    "_scope": "DEFAULT",
+    "id": "6ab33377871b930097ad6a63",
+    "title": "4- 계정 스프레이 탐지 (한 IP 가 서로 다른 계정으로 접근 5번 이상)",
+    "description": "같은 src_ip 에서 서로 다른 username 5개이상 로그인 실패 -> 패스워드/계정 스프레이 의심.",
+    "updated_at": "2026-09-23T02:03:35.687Z",
+    "matched_at": "2026-09-23T03:40:50.818Z",
+    "priority": 2,
+    "alert": true,
+    "config": {
+      "type": "aggregation-v1",
+      "query": "rule:login-bruteforce",
+      "query_parameters": [],
+      "filters": [],
+      "streams": [],
+      "stream_categories": [],
+      "group_by": [
+        "src_ip"
+      ],
+      "series": [
+        {
+          "type": "card",
+          "id": "card-username",
+          "field": "username"
+        }
+      ],
+      "conditions": {
+        "expression": {
+          "expr": ">",
+          "left": {
+            "expr": "number-ref",
+            "ref": "card-username"
+          },
+          "right": {
+            "expr": "number",
+            "value": 4.0
+          }
+        }
+      },
+      "search_within_ms": 120000,
+      "execute_every_ms": 15000,
+      "use_cron_scheduling": false,
+      "cron_expression": null,
+      "cron_timezone": null,
+      "event_limit": 100
+    },
+    "field_spec": {
+      "src_ip": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.src_ip}",
+            "require_values": false
+          }
+        ]
+      },
+      "username": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.username}",
+            "require_values": false
+          }
+        ]
+      }
+    },
+    "key_spec": [
+      "src_ip"
+    ],
+    "notification_settings": {
+      "grace_period_ms": 120000,
+      "backlog_size": 0
+    },
+    "notifications": [
+      {
+        "notification_id": "6ab33006871b930097ad608c",
+        "notification_parameters": null
+      }
+    ],
+    "storage": [
+      {
+        "type": "persist-to-streams-v1",
+        "streams": [
+          "000000000000000000000002"
+        ]
+      }
+    ],
+    "scheduler": null,
+    "state": "ENABLED"
+  },
+  {
+    "_scope": "DEFAULT",
+    "id": "6ab33671871b930097ad734f",
+    "title": "5-복합 공격 상관 탐지 (같은 IP: 네트워크 + 앱 동시)",
+    "description": "같은 src_ip에서 서로 다른 rule 2종 이상(예: portscan+login-bruteforce)-> 네트워크, 앱 계층 복합 공격 의심(고위험)",
+    "updated_at": "2026-09-23T02:16:41.257Z",
+    "matched_at": "2026-09-23T03:42:26.260Z",
+    "priority": 3,
+    "alert": true,
+    "config": {
+      "type": "aggregation-v1",
+      "query": "rule:login-bruteforce OR rule:portscan",
+      "query_parameters": [],
+      "filters": [],
+      "streams": [],
+      "stream_categories": [],
+      "group_by": [
+        "src_ip"
+      ],
+      "series": [
+        {
+          "type": "card",
+          "id": "card-rule",
+          "field": "rule"
+        }
+      ],
+      "conditions": {
+        "expression": {
+          "expr": ">",
+          "left": {
+            "expr": "number-ref",
+            "ref": "card-rule"
+          },
+          "right": {
+            "expr": "number",
+            "value": 1.0
+          }
+        }
+      },
+      "search_within_ms": 120000,
+      "execute_every_ms": 15000,
+      "use_cron_scheduling": false,
+      "cron_expression": null,
+      "cron_timezone": null,
+      "event_limit": 100
+    },
+    "field_spec": {
+      "rule": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.rule}",
+            "require_values": false
+          }
+        ]
+      },
+      "src_ip": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.src_ip}",
+            "require_values": false
+          }
+        ]
+      },
+      "username": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.username}",
+            "require_values": false
+          }
+        ]
+      }
+    },
+    "key_spec": [
+      "src_ip"
+    ],
+    "notification_settings": {
+      "grace_period_ms": 120000,
+      "backlog_size": 0
+    },
+    "notifications": [
+      {
+        "notification_id": "6ab33006871b930097ad608c",
+        "notification_parameters": null
+      }
+    ],
+    "storage": [
+      {
+        "type": "persist-to-streams-v1",
+        "streams": [
+          "000000000000000000000002"
+        ]
+      }
+    ],
+    "scheduler": null,
+    "state": "ENABLED"
+  },
+  {
+    "_scope": "DEFAULT",
+    "id": "6ab9d3899fa0120467b91a61",
+    "title": "6-인시던트 승격 - 잠긴 계정에서 지속 시도 (같은 출발지 ip 3회 이상)",
+    "description": "대응(계정잠금)이 끝난 뒤에도 같은 출발지에서 잠긴 계정 로그인 시도가 이어지면 사건으로 승격해 인시던트 티켓을 만든다. 탐지 대응 다음 단계인 기록, 추적",
+    "updated_at": "2026-09-28T02:40:09.114Z",
+    "matched_at": "2026-09-28T07:08:09.176Z",
+    "priority": 3,
+    "alert": true,
+    "config": {
+      "type": "aggregation-v1",
+      "query": "rule:login-bruteforce AND locked:1",
+      "query_parameters": [],
+      "filters": [],
+      "streams": [],
+      "stream_categories": [],
+      "group_by": [
+        "src_ip"
+      ],
+      "series": [
+        {
+          "type": "count",
+          "id": "count-",
+          "field": null
+        }
+      ],
+      "conditions": {
+        "expression": {
+          "expr": ">",
+          "left": {
+            "expr": "number-ref",
+            "ref": "count-"
+          },
+          "right": {
+            "expr": "number",
+            "value": 2.0
+          }
+        }
+      },
+      "search_within_ms": 60000,
+      "execute_every_ms": 60000,
+      "use_cron_scheduling": false,
+      "cron_expression": null,
+      "cron_timezone": null,
+      "event_limit": 100
+    },
+    "field_spec": {
+      "src_ip": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.src_ip}",
+            "require_values": false
+          }
+        ]
+      },
+      "rule": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.rule}",
+            "require_values": false
+          }
+        ]
+      },
+      "username": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.username}",
+            "require_values": false
+          }
+        ]
+      }
+    },
+    "key_spec": [
+      "src_ip"
+    ],
+    "notification_settings": {
+      "grace_period_ms": 120000,
+      "backlog_size": 0
+    },
+    "notifications": [
+      {
+        "notification_id": "6ab9d3089fa0120467b918eb",
+        "notification_parameters": null
+      }
+    ],
+    "storage": [
+      {
+        "type": "persist-to-streams-v1",
+        "streams": [
+          "000000000000000000000002"
+        ]
+      }
+    ],
+    "scheduler": null,
+    "state": "ENABLED"
+  },
+  {
+    "_scope": "DEFAULT",
+    "id": "6abf0e162b6c892d6d2d0f4b",
+    "title": "7-Wazuh  브루트포스 탐지 (rule 100211)",
+    "description": "wazuh 에이전트가 게시판 보안 로그에서 동일 IP 다수 로그인 실패를 탐지",
+    "updated_at": "2026-10-02T03:25:02.272Z",
+    "matched_at": "2026-10-08T03:09:50.131Z",
+    "priority": 2,
+    "alert": true,
+    "config": {
+      "type": "aggregation-v1",
+      "query": "wazuh_rule_id:100211",
+      "query_parameters": [],
+      "filters": [],
+      "streams": [
+        "6abc77811cf9ab654f385bac"
+      ],
+      "stream_categories": [],
+      "group_by": [],
+      "series": [],
+      "conditions": {
+        "expression": null
+      },
+      "search_within_ms": 60000,
+      "execute_every_ms": 60000,
+      "use_cron_scheduling": false,
+      "cron_expression": null,
+      "cron_timezone": null,
+      "event_limit": 100
+    },
+    "field_spec": {
+      "agent": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.wazuh_agent_name}",
+            "require_values": false
+          }
+        ]
+      },
+      "description": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.wazuh_rule_description}",
+            "require_values": false
+          }
+        ]
+      },
+      "rule_id": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.wazuh_rule_id}",
+            "require_values": false
+          }
+        ]
+      },
+      "rule_level": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.wazuh_rule_level}",
+            "require_values": false
+          }
+        ]
+      },
+      "srcip": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.wazuh_data_srcip}",
+            "require_values": false
+          }
+        ]
+      },
+      "user": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.wazuh_data_dstuser}",
+            "require_values": false
+          }
+        ]
+      }
+    },
+    "key_spec": [
+      "srcip"
+    ],
+    "notification_settings": {
+      "grace_period_ms": 120000,
+      "backlog_size": 0
+    },
+    "notifications": [
+      {
+        "notification_id": "6abf0deb2b6c892d6d2d0ec6",
+        "notification_parameters": null
+      }
+    ],
+    "storage": [
+      {
+        "type": "persist-to-streams-v1",
+        "streams": [
+          "000000000000000000000002"
+        ]
+      }
+    ],
+    "scheduler": null,
+    "state": "ENABLED"
+  },
+  {
+    "_scope": "DEFAULT",
+    "id": "6abf164e2b6c892d6d2d283d",
+    "title": "8- Wazuh 웹 파일 위변조 웰쉡 탐지 (rule 100220, 100221, 100222)",
+    "description": "Wazuh FIM 이 게시판 templates 폴더의 파일 추가, 변경 , 삭제 를 탐지",
+    "updated_at": "2026-10-02T02:26:22.886Z",
+    "matched_at": "2026-10-08T02:53:55.016Z",
+    "priority": 3,
+    "alert": true,
+    "config": {
+      "type": "aggregation-v1",
+      "query": "wazuh_rule_id:(100220 OR 100221 OR 100222)",
+      "query_parameters": [],
+      "filters": [],
+      "streams": [
+        "6abc77811cf9ab654f385bac"
+      ],
+      "stream_categories": [],
+      "group_by": [],
+      "series": [],
+      "conditions": {
+        "expression": null
+      },
+      "search_within_ms": 15000,
+      "execute_every_ms": 15000,
+      "use_cron_scheduling": false,
+      "cron_expression": null,
+      "cron_timezone": null,
+      "event_limit": 100
+    },
+    "field_spec": {
+      "agent": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.wazuh_agent_name}",
+            "require_values": false
+          }
+        ]
+      },
+      "description": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.wazuh_rule_description}",
+            "require_values": false
+          }
+        ]
+      },
+      "file": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.wazuh_file}",
+            "require_values": false
+          }
+        ]
+      },
+      "fim_event": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.wazuh_syscheck_event}",
+            "require_values": false
+          }
+        ]
+      },
+      "rule_id": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.wazuh_rule_id}",
+            "require_values": false
+          }
+        ]
+      },
+      "rule_level": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.wazuh_rule_level}",
+            "require_values": false
+          }
+        ]
+      }
+    },
+    "key_spec": [
+      "rule_id",
+      "file"
+    ],
+    "notification_settings": {
+      "grace_period_ms": 60000,
+      "backlog_size": 0
+    },
+    "notifications": [
+      {
+        "notification_id": "6abf0deb2b6c892d6d2d0ec6",
+        "notification_parameters": null
+      }
+    ],
+    "storage": [
+      {
+        "type": "persist-to-streams-v1",
+        "streams": [
+          "000000000000000000000002"
+        ]
+      }
+    ],
+    "scheduler": null,
+    "state": "ENABLED"
+  },
+  {
+    "_scope": "DEFAULT",
+    "id": "6ac485f5dcf1f53a046f94bb",
+    "title": "9-웹 스캐너 404 폭주 탐지 (src_ip, 30회 초과)",
+    "description": "단일 src_ip 가 60초 내 404를 30회 이상 유발 (nikto, gobuster 등 웹스캔) -> n8n 차단",
+    "remediation_steps": "",
+    "updated_at": "2026-10-06T05:24:05.204Z",
+    "matched_at": "2026-10-06T06:14:35.923Z",
+    "priority": 2,
+    "alert": true,
+    "config": {
+      "type": "aggregation-v1",
+      "query": "rule:web-scan",
+      "query_parameters": [],
+      "filters": [],
+      "streams": [],
+      "stream_categories": [],
+      "group_by": [
+        "src_ip"
+      ],
+      "series": [
+        {
+          "type": "count",
+          "id": "count-",
+          "field": null
+        }
+      ],
+      "conditions": {
+        "expression": {
+          "expr": ">",
+          "left": {
+            "expr": "number-ref",
+            "ref": "count-"
+          },
+          "right": {
+            "expr": "number",
+            "value": 30.0
+          }
+        }
+      },
+      "search_within_ms": 30000,
+      "execute_every_ms": 30000,
+      "use_cron_scheduling": false,
+      "cron_expression": null,
+      "cron_timezone": null,
+      "event_limit": 100
+    },
+    "field_spec": {
+      "src_ip": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.src_ip}",
+            "require_values": false
+          }
+        ]
+      },
+      "username": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.username}",
+            "require_values": false
+          }
+        ]
+      }
+    },
+    "key_spec": [
+      "src_ip"
+    ],
+    "notification_settings": {
+      "grace_period_ms": 120000,
+      "backlog_size": 0
+    },
+    "notifications": [
+      {
+        "notification_id": "6ab1e60280130f5bcf77dd1e",
+        "notification_parameters": null
+      }
+    ],
+    "storage": [
+      {
+        "type": "persist-to-streams-v1",
+        "streams": [
+          "000000000000000000000002"
+        ]
+      }
+    ],
+    "scheduler": null,
+    "state": "ENABLED"
+  },
+  {
+    "_scope": "SYSTEM_NOTIFICATION_EVENT",
+    "id": "6aa89dd20f3a7c17107c8c30",
+    "title": "System notification events",
+    "description": "Reserved event definition for system notification events",
+    "updated_at": "2026-09-15T01:22:26.327Z",
+    "matched_at": "2026-09-30T04:42:18.261Z",
+    "priority": 1,
+    "alert": false,
+    "config": {
+      "type": "system-notifications-v1"
+    },
+    "field_spec": {},
+    "key_spec": [],
+    "notification_settings": {
+      "grace_period_ms": 0,
+      "backlog_size": 0
+    },
+    "notifications": [],
+    "storage": [
+      {
+        "type": "persist-to-streams-v1",
+        "streams": [
+          "000000000000000000000003"
+        ]
+      }
+    ],
+    "scheduler": null,
+    "state": "ENABLED"
+  },
+  {
+    "_scope": "DEFAULT",
+    "id": "6ab099104e5fe51ab3e9618d",
+    "title": "hping3 SYN flood 탐지 테스트",
+    "description": "rule:hping3-synflood 로그 수신시 n8n 통보",
+    "updated_at": "2026-09-21T02:40:16.291Z",
+    "matched_at": "2026-09-22T04:59:50.972Z",
+    "priority": 2,
+    "alert": true,
+    "config": {
+      "type": "aggregation-v1",
+      "query": "rule:hping3-synflood ",
+      "query_parameters": [],
+      "filters": [],
+      "streams": [],
+      "stream_categories": [],
+      "group_by": [],
+      "series": [],
+      "conditions": {
+        "expression": null
+      },
+      "search_within_ms": 60000,
+      "execute_every_ms": 15000,
+      "use_cron_scheduling": false,
+      "cron_expression": null,
+      "cron_timezone": null,
+      "event_limit": 100
+    },
+    "field_spec": {},
+    "key_spec": [],
+    "notification_settings": {
+      "grace_period_ms": 0,
+      "backlog_size": 1
+    },
+    "notifications": [
+      {
+        "notification_id": "6ab098ce4e5fe51ab3e960c7",
+        "notification_parameters": null
+      }
+    ],
+    "storage": [
+      {
+        "type": "persist-to-streams-v1",
+        "streams": [
+          "000000000000000000000002"
+        ]
+      }
+    ],
+    "scheduler": null,
+    "state": "ENABLED"
+  },
+  {
+    "_scope": "DEFAULT",
+    "id": "6aa8c10a3860df77831ac7ec",
+    "title": "자동 회수봇 테스트",
+    "description": "bot을 이용한 n8n으로 admin의 이상권한 회수. 봇으로 권한 자동회수",
+    "updated_at": "2026-09-16T03:43:35.416Z",
+    "matched_at": "2026-09-17T03:06:09.936Z",
+    "priority": 2,
+    "alert": true,
+    "config": {
+      "type": "aggregation-v1",
+      "query": "rule:priv-unauthorized-admin",
+      "query_parameters": [],
+      "filters": [],
+      "streams": [],
+      "stream_categories": [],
+      "group_by": [],
+      "series": [],
+      "conditions": {
+        "expression": null
+      },
+      "search_within_ms": 1000,
+      "execute_every_ms": 1000,
+      "use_cron_scheduling": false,
+      "cron_expression": null,
+      "cron_timezone": null,
+      "event_limit": 100
+    },
+    "field_spec": {
+      "granted_by": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.granted_by}",
+            "require_values": false
+          }
+        ]
+      },
+      "src_ip": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.src_ip}",
+            "require_values": false
+          }
+        ]
+      },
+      "user": {
+        "data_type": "string",
+        "providers": [
+          {
+            "type": "template-v1",
+            "template": "${source.user}",
+            "require_values": false
+          }
+        ]
+      }
+    },
+    "key_spec": [],
+    "notification_settings": {
+      "grace_period_ms": 1000,
+      "backlog_size": 1
+    },
+    "notifications": [
+      {
+        "notification_id": "6aa8c09b3860df77831ac6a5",
+        "notification_parameters": null
+      }
+    ],
+    "storage": [
+      {
+        "type": "persist-to-streams-v1",
+        "streams": [
+          "000000000000000000000002"
+        ]
+      }
+    ],
+    "scheduler": null,
+    "state": "ENABLED"
+  }
+]

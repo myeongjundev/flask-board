@@ -1,4 +1,112 @@
-# [실습] 로그인 경보 자동화 봇 — 제출문
+# Flask 보안 실습 게시판 — Graylog · n8n · Wazuh
+
+Flask 게시판의 로그인·접근 제어·보안 이벤트를 Graylog와 Wazuh로 탐지하고,
+n8n으로 알림과 계정 잠금·IP 차단·인시던트 대응을 연결하는 수업 실습 저장소입니다.
+기존 로그인 경보 봇의 제출 기록과 이후 실습 결과를 함께 보관합니다.
+
+**최근 확인: 2026-10-08.** Wazuh 4.9.0 Dashboard 연결과 Agent 경보 저장을
+확인하고, 팀원별 LLM 검증 길라잡이와 Graylog Alerts 내보내기를 추가했습니다.
+
+## 실행·검증 문서
+
+| 목적 | 문서 |
+| --- | --- |
+| 게시판·DB·n8n 실행 준비 | [SETUP.md](SETUP.md) |
+| Wazuh Manager·Indexer·Dashboard 구성과 기존 설정 보존 | [Wazuh 실행 안내](wazuh/README.md) |
+| Dashboard에 메시지가 없을 때 개인별 LLM 점검 | [Wazuh LLM 검증 길라잡이](docs/WAZUH-LLM-VERIFICATION-GUIDE.md) |
+| Graylog 탐지 정의 복사·LLM 비교·다른 PC로 가져오기 | [Graylog Alerts 내보내기](graylog/exports/README.md) |
+| PC·폴더를 옮긴 뒤 재연결 | [환경 재배치](docs/RELOCATION-RUNBOOK.md) |
+
+게시판을 실행하는 PC에서 사용하는 주소입니다. `localhost`는 각자의 PC를 뜻합니다.
+
+| 화면 | 주소 |
+| --- | --- |
+| Flask 게시판 / 보안 대시보드 | `http://localhost:5000/` / `http://localhost:5000/dashboard` |
+| Graylog | `http://localhost:9000/` |
+| n8n | `http://localhost:5678/` |
+| Wazuh Dashboard | `https://localhost/` |
+
+```mermaid
+flowchart LR
+  B[Flask 게시판] -->|GELF 보안 로그| G[Graylog]
+  B -->|logs/security.log| A[Windows Wazuh Agent]
+  T[templates 파일 변경] -->|FIM| A
+  A --> M[Wazuh Manager]
+  M -->|Filebeat · TLS| I[Wazuh Indexer]
+  I --> D[Wazuh Dashboard]
+  M -->|Wazuh 경보 전달| G
+  G -->|Event Definition · Notification| N[n8n]
+  N --> C[메신저 알림 · 게시판 대응 API]
+```
+
+## 10-08 Wazuh Dashboard 및 Graylog 설정 기록
+
+### 구성과 검증 결과
+
+Wazuh Manager·Indexer·Dashboard의 이미지를 **4.9.0**으로 맞추고,
+Graylog와 같은 Docker 네트워크 **`9_graylog_default`**에 연결했습니다.
+기존 Manager의 Agent 키·그룹·사용자 규칙·DB를 보존해 저장 볼륨으로 이전했습니다.
+실제 인증서, Agent 등록 키와 개인 백업은 Git에 올리지 않습니다.
+
+| 확인 항목 | 2026-10-08 결과 |
+| --- | --- |
+| Manager·Indexer·Dashboard | 컨테이너 실행 중, Dashboard 443 포트 |
+| Agent | `001` / `board-host`, Active, `default, flask-board` 그룹 |
+| Filebeat → Indexer | DNS·TLS 인증서 검증·서버 연결 통과 |
+| Indexer 실제 저장 | 14:10 KST 점검에서 Agent 001 경보 107건. 수집에 따라 달라지는 관측값 |
+| FIM | 무해한 파일 생성·수정 `100220`, 삭제 `100222` 경보 확인 후 테스트 파일 정리 |
+| 기존 게시판 자동 테스트 | `unittest` 69개 통과 |
+
+사용자 PC에서 확인한 Threat Hunting 화면에는 Windows 로그와 로그인 실패
+`100210`, 반복 로그인 실패 의심 `100211` 경보가 표시됩니다. Graylog에서도 Wazuh
+경보 메시지가 보이고, n8n 실행 목록에는 Wazuh 연동 워크플로의 성공 기록이 있습니다.
+이 화면 기록과 별개로 각 팀원의 PC에서는 동일 이벤트가 각 구간을 통과하는지
+검증해야 합니다. 메신저의 실제 전달 여부는 해당 실행을 따로 확인합니다.
+
+![Wazuh Threat Hunting 경보](image/wazuh_20261008/wazuh-threat-hunting.png)
+
+![Graylog Wazuh 경보 메시지](image/wazuh_20261008/graylog-wazuh-messages.png)
+
+![n8n Wazuh 연동 실행 목록](image/wazuh_20261008/n8n-executions.png)
+
+게시판 루트에서 현재 환경을 읽기 전용으로 점검합니다. 다른 PC에서는 실제 Agent ID를
+먼저 확인하고 `001`을 자신의 ID로 바꿉니다.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check_wazuh.ps1 -AgentId 001
+```
+
+설정은 `config/`, Wazuh Compose는 `wazuh/docker-compose.yml`에 있습니다.
+루트의 `docker-compose.yml`은 MySQL용이므로 Wazuh는 `-f wazuh/docker-compose.yml`로
+실행합니다. 현재 Wazuh Compose의 외부 볼륨은 **기존 설정을 이전한 이 PC의 볼륨**입니다.
+새 PC에서 실행하기 전에는 인증서 생성·기존 볼륨 복원 또는 새 볼륨 구성·Agent 등록과
+자신의 게시판 경로 설정을 마쳐야 합니다. 자세한 순서는 [Wazuh 실행 안내](wazuh/README.md)를 따릅니다.
+
+### 개인별 LLM 검토와 Graylog Alerts 복사
+
+[LLM 검증 길라잡이](docs/WAZUH-LLM-VERIFICATION-GUIDE.md)는
+게시판 파일 → Agent → Manager → Filebeat → Indexer → Dashboard를 단계별로 점검하고,
+사실·추정·미확인 항목을 구분하게 합니다. 개인 경로와 Agent ID를 강사님 값으로
+그대로 덮어쓰지 않도록 실제 값을 먼저 확인합니다.
+
+실행 중인 Graylog 6.1.16 API에서 **Event Definitions 11개와 Notifications 6개**를
+내보냈습니다. [설정 목록 MD](graylog/exports/20261008_124730/EVENT-DEFINITIONS.md)에는
+검색식·집계·임계값·실행 간격·Custom Fields·연결 알림과 LLM 검토 요청문이 있습니다.
+[Content Pack JSON](graylog/exports/20261008_124730/graylog-alerts.content-pack.json)은
+시스템 기본 정의를 제외한 사용자 정의 10개와 연결 알림 6개를 담았습니다.
+
+공유본의 URL·인증 정보는 제거하거나 입력 파라미터로 바꿨고, 가져온 정의는 비활성
+상태에서 검토하도록 구성했습니다. 대상 PC의 n8n URL·인증·`Wazuh 경보` Stream을
+확인한 뒤 활성화합니다. JSON 구문과 참조는 검증했으며 다른 PC에 설치하는 테스트는
+실행하지 않았습니다. [가져오기 안내](graylog/exports/20261008_124730/README.md)를 따릅니다.
+
+Dashboard 표에 Agent 이름을 표시하려면 위쪽의 **`columns hidden`**에서
+`agent.name`을 표시하도록 선택합니다. 강사님 화면의 열 순서는
+`timestamp → agent.name → rule.description → rule.level → rule.id`입니다.
+
+---
+
+## 최초 실습 — 로그인 경보 자동화 봇 제출 기록
 
 - **이름:** Kim Myeongjun (김명준)
 - **사용한 n8n 버전 / Code 노드 언어:** n8n 2.37.9 (Docker) / **JavaScript**
@@ -18,6 +126,7 @@
 | 09-21 | SYN Flood 탐지 — Kali 2초 공격 → Graylog → n8n → 메신저 3종·게시판 | 이 문서 "미니 실습 — SYN Flood", `docs/MINI-LAB-SYN-FLOOD.md` |
 | 09-28 | 강사님 연휴 업데이트 이식 — 인시던트 티켓 대시보드, 탐지 신호 4종(S5·S6·S9), SOAR 자기차단 수정 | 이 문서 "강사님 최신 보안 대응 코드 통합" |
 | 10-06 | Gobuster·Nikto 웹 스캔 — 404 탐지 로그 연결 복구, Graylog 이벤트·차단 후 재시도 확인 | 이 문서 "10-06 Gobuster 404 스캔 탐지 연결 복구" |
+| 10-08 | Wazuh 4.9.0 Dashboard·FIM 확인, 개인별 LLM 점검, Graylog Alerts 내보내기 | 이 문서 "10-08 Wazuh Dashboard 및 Graylog 설정 기록", `wazuh/README.md`, `graylog/exports/` |
 
 자동 테스트는 69개이고 모두 통과합니다(실행 방법은 맨 아래 부록).
 
@@ -65,7 +174,8 @@ alert_sender.py                                                my_new_board_db
 | 자동화 | n8n 2.37.9 (Docker) — Webhook · Code(JavaScript) · IF · HTTP Request |
 | DB | MySQL 8.0 (Docker), 스키마 `my_new_board_db` |
 | 메신저 | 슬랙 · 디스코드 · 텔레그램 (3종 모두 실제 연결) |
-| 기타 | python-dotenv, requests, pytest |
+| 기타 | python-dotenv, requests, unittest |
+| 로그·탐지 | Graylog 6.1.16, Wazuh 4.9.0 Manager·Indexer·Dashboard, Windows Wazuh Agent |
 
 ---
 
@@ -632,6 +742,11 @@ GELF로 받은 `src_ip`, `syn_count`, `student`가 메시지 필드로 저장되
 | `controllers/admin_controller.py` | 회원 관리와 관리자 보안 API, 자기 강등·자기 삭제·마지막 관리자 보호 |
 | `templates/dashboard.html` | 보안 대시보드 |
 | `graylog/docker-compose.yml` | Graylog · MongoDB · OpenSearch 실습 환경 |
+| `wazuh/docker-compose.yml` · `config/` | Wazuh 4.9.0 환경과 Indexer·Dashboard 설정. 인증서는 Git 제외 |
+| `generate-indexer-certs.yml` · `config/certs.yml` | 개인 환경의 Wazuh TLS 인증서 생성 구성 |
+| `scripts/check_wazuh.ps1` | Agent·Filebeat·Indexer·Docker 네트워크 읽기 전용 점검 |
+| `docs/WAZUH-LLM-VERIFICATION-GUIDE.md` | 개인별 LLM 검토 요청문·진단 순서·FIM 테스트·보고서 양식 |
+| `scripts/export_graylog_alerts.py` · `graylog/exports/` | Graylog Alerts 내보내기·검토용 JSON·Content Pack |
 | `scripts/capture_api_evidence.ps1` | 401·400·201·200을 한 화면에 (증적용) |
 | `scripts/capture_db_evidence.ps1` | 저장된 행과 판정별 건수 (증적용) |
 | `scripts/capture_role_evidence.py` | 등급별 접근 제어 캡처 (증적용) |
@@ -702,8 +817,9 @@ GELF로 받은 `src_ip`, `syn_count`, `student`가 메시지 필드로 저장되
 **테스트 격리.** `.env`의 `GELF_ENABLED=0`이면 GELF를 보내지 않습니다(기본은 켜짐). 테스트
 설정은 모두 꺼 두어, 테스트가 실습 Graylog에 가짜 경보를 남기지 않습니다.
 
-로그인 성공을 Wazuh용 `security.log` 파일에도 남기는 강사님 코드는 이 게시판에 파일 로그
-기능이 없어 옮기지 않았습니다.
+로그인 파일 로그는 이후 `controllers/seclog.py`로 이식했습니다. 로그인 성공·실패와
+잠긴 계정의 시도를 `logs/security.log`에 기록하고 Wazuh Agent가 수집합니다.
+`SECURITY_LOG_PATH`로 저장 위치를 바꿀 수 있으며 Agent의 수집 경로도 같은 위치로 맞춥니다.
 
 권한 회수 봇은 먼저 출력만 확인한 뒤 실제 연동을 켜는 순서가 안전합니다.
 

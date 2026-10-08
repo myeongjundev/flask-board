@@ -1,0 +1,116 @@
+[
+  {
+    "id": "6ab1e60280130f5bcf77dd1e",
+    "title": "3-n8n Webhook(ip-block)",
+    "description": "반복 로그인 실패 출발지 IP 실차단 트리",
+    "config": {
+      "type": "http-notification-v2",
+      "basic_auth": "[개인 PC에서 다시 입력할 인증 정보]",
+      "api_key_as_header": "[REDACTED]",
+      "api_key": "[REDACTED]",
+      "api_secret": "[REDACTED]",
+      "url": "[개인 PC의 Webhook URL]",
+      "skip_tls_verification": true,
+      "method": "POST",
+      "time_zone": "UTC",
+      "content_type": "JSON",
+      "headers": "[개인 PC에서 다시 입력할 헤더]",
+      "body_template": "{\"src_ip\":\"${event.fields.src_ip}\",\"count\":5,\"student\":\"lsy\",\"rule\":\"${event_definition_title}\"}"
+    }
+  },
+  {
+    "id": "6ab33006871b930097ad608c",
+    "title": "4-n8n Webhook(security-alert)",
+    "description": "스프레이, 상관 등 집계 경보를 n8n 3채널로 통지",
+    "config": {
+      "type": "http-notification-v2",
+      "basic_auth": "[개인 PC에서 다시 입력할 인증 정보]",
+      "api_key_as_header": "[REDACTED]",
+      "api_key": "[REDACTED]",
+      "api_secret": "[REDACTED]",
+      "url": "[개인 PC의 Webhook URL]",
+      "skip_tls_verification": true,
+      "method": "POST",
+      "time_zone": "UTC",
+      "content_type": "JSON",
+      "headers": "[개인 PC에서 다시 입력할 헤더]",
+      "body_template": "{\"src_ip\":\"${event.fields.src_ip}\",\"student\":\"lsy\",\"rule\":\"${event_definition_title}\"}"
+    }
+  },
+  {
+    "id": "6ab9d3089fa0120467b918eb",
+    "title": "5-n8n Webhook (incident)",
+    "description": "대응 (잠금)이후에도 지속되는 공격을 인시던트 티켓으로 승격-n8n 인시던트 리포트봇 통지",
+    "config": {
+      "type": "http-notification-v2",
+      "basic_auth": "[개인 PC에서 다시 입력할 인증 정보]",
+      "api_key_as_header": "[REDACTED]",
+      "api_key": "[REDACTED]",
+      "api_secret": "[REDACTED]",
+      "url": "[개인 PC의 Webhook URL]",
+      "skip_tls_verification": true,
+      "method": "POST",
+      "time_zone": "UTC",
+      "content_type": "JSON",
+      "headers": "[개인 PC에서 다시 입력할 헤더]",
+      "body_template": "{\"src_ip\": \"${event.fields.src_ip}\", \"student\": \"lsy\", \"rule\": \"${event_definition_title}\", \"severity\": \"High\"}"
+    }
+  },
+  {
+    "id": "6abf0deb2b6c892d6d2d0ec6",
+    "title": "6 - n8n Webhook (wazuh-alert)",
+    "description": "Wazuh 경보(브루트포스, 웹 파일 변조) -> n8n Wazuh 경보봇",
+    "config": {
+      "type": "http-notification-v2",
+      "basic_auth": "[개인 PC에서 다시 입력할 인증 정보]",
+      "api_key_as_header": "[REDACTED]",
+      "api_key": "[REDACTED]",
+      "api_secret": "[REDACTED]",
+      "url": "[개인 PC의 Webhook URL]",
+      "skip_tls_verification": true,
+      "method": "POST",
+      "time_zone": "Asia/Seoul",
+      "content_type": "JSON",
+      "headers": "[개인 PC에서 다시 입력할 헤더]",
+      "body_template": "{\"source\":\"wazuh\",\"rule_id\":\"${event.fields.rule_id}\",\"rule_level\":\"${event.fields.rule_level}\",\"description\":\"${event.fields.description}\",\"srcip\":\"${event.fields.srcip}\",\"user\":\"${event.fields.user}\",\"file\":\"${event.fields.file}\",\"fim_event\":\"${event.fields.fim_event}\",\"agent\":\"${event.fields.agent}\",\"title\":\"${event_definition_title}\",\"student\":\"lsy\"}"
+    }
+  },
+  {
+    "id": "6aa8c09b3860df77831ac6a5",
+    "title": "n8n Webhook(priv-guard)",
+    "description": "n8n Webhook(priv-guard)",
+    "config": {
+      "type": "http-notification-v2",
+      "basic_auth": "[개인 PC에서 다시 입력할 인증 정보]",
+      "api_key_as_header": "[REDACTED]",
+      "api_key": "[REDACTED]",
+      "api_secret": "[REDACTED]",
+      "url": "[개인 PC의 Webhook URL]",
+      "skip_tls_verification": true,
+      "method": "POST",
+      "time_zone": "UTC",
+      "content_type": "JSON",
+      "headers": "[개인 PC에서 다시 입력할 헤더]",
+      "body_template": "{\n  \"user\": \"${event.fields.user}\",\n  \"rule\": \"${event_definition_title}\",\n  \"student\": \"hjh\",\n  \"src_ip\": \"${event.fields.src_ip}\",\n  \"granted_by\": \"${event.fields.granted_by}\"\n}"
+    }
+  },
+  {
+    "id": "6ab098ce4e5fe51ab3e960c7",
+    "title": "n8n webhook (login-guard)",
+    "description": "Graylog 이벤트를 n8n 웹훅으로 전달.",
+    "config": {
+      "type": "http-notification-v2",
+      "basic_auth": "[개인 PC에서 다시 입력할 인증 정보]",
+      "api_key_as_header": "[REDACTED]",
+      "api_key": "[REDACTED]",
+      "api_secret": "[REDACTED]",
+      "url": "[개인 PC의 Webhook URL]",
+      "skip_tls_verification": true,
+      "method": "POST",
+      "time_zone": "UTC",
+      "content_type": "JSON",
+      "headers": "[개인 PC에서 다시 입력할 헤더]",
+      "body_template": "{\"student\":\"lsy\",\"source\":\"graylog\",\"rule\":\"${event_definition_title}\",\"ip\":\"172.31.195.249\",\"level\":10}"
+    }
+  }
+]

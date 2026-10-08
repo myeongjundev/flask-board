@@ -6,6 +6,15 @@
 SYN flood 탐지 미니 실습은
 [`docs/MINI-LAB-SYN-FLOOD.md`](docs/MINI-LAB-SYN-FLOOD.md)를 따른다.
 
+Wazuh Manager·Indexer·Dashboard 수업 환경은
+[`wazuh/README.md`](wazuh/README.md)를 따른다.
+
+팀원별 Dashboard 메시지 미표시 문제를 LLM으로 검토할 때는
+[`docs/WAZUH-LLM-VERIFICATION-GUIDE.md`](docs/WAZUH-LLM-VERIFICATION-GUIDE.md)를 따른다.
+
+Graylog Alerts 정의를 파일로 비교하거나 다른 PC에 가져올 때는
+[`graylog/exports/README.md`](graylog/exports/README.md)를 따른다.
+
 ## 1. 로컬 설정
 
 ```powershell

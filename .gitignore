@@ -15,3 +15,13 @@ venv/
 
 # n8n 내보내기에는 Webhook 토큰과 API 키가 포함될 수 있다.
 backups/n8n/
+
+# Graylog 원본 내보내기에는 알림 URL과 인증 헤더가 포함될 수 있다.
+backups/graylog/
+
+# Wazuh Manager 백업에는 Agent 등록 키가 포함된다.
+backups/wazuh-manager/
+# 수업 중 생성한 백업 및 TLS 개인키
+/backup/
+/config/wazuh_indexer_ssl_certs/
+/wazuh/config/wazuh_indexer_ssl_certs/
